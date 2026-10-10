@@ -116,30 +116,30 @@ export const StartScreen: React.FC<StartScreenProps> = ({ onStart }) => {
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/90 backdrop-blur-md overflow-y-auto">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-950/90 backdrop-blur-md overflow-y-auto">
       <div className="absolute w-[600px] h-[600px] bg-purple-600/20 rounded-full blur-[120px] pointer-events-none animate-pulse" />
       <div className="absolute w-[400px] h-[400px] bg-emerald-500/15 rounded-full blur-[100px] pointer-events-none -bottom-20 -right-20" />
 
-      <div className="relative w-full max-w-4xl bg-slate-900/95 border border-purple-500/40 rounded-3xl p-6 sm:p-8 shadow-2xl shadow-purple-950/90 backdrop-blur-xl flex flex-col gap-6 my-auto">
+      <div className="relative w-full max-w-4xl bg-slate-900/95 border border-purple-500/40 rounded-3xl p-4 sm:p-8 shadow-2xl shadow-purple-950/90 backdrop-blur-xl flex flex-col gap-4 sm:gap-6 my-auto max-h-[92vh] overflow-y-auto">
         {/* Header Title Section */}
-        <div className="flex flex-col sm:flex-row items-center justify-between gap-4 border-b border-slate-800 pb-5">
-          <div className="text-center sm:text-left flex items-center gap-4">
-            <div className="w-16 h-16 rounded-2xl border-2 border-purple-500/60 overflow-hidden bg-purple-950/60 shadow-lg shrink-0">
+        <div className="flex flex-col sm:flex-row items-center justify-between gap-3 sm:gap-4 border-b border-slate-800 pb-4 sm:pb-5">
+          <div className="text-center sm:text-left flex flex-col sm:flex-row items-center gap-3 sm:gap-4">
+            <div className="w-12 h-12 sm:w-16 sm:h-16 rounded-2xl border-2 border-purple-500/60 overflow-hidden bg-purple-950/60 shadow-lg shrink-0">
               <img src="/chog_main.png" alt="Chog Genesis" className="w-full h-full object-cover" />
             </div>
             <div>
-              <div className="flex items-center justify-center sm:justify-start gap-2 mb-1">
-                <span className="px-3 py-1 text-xs font-bold uppercase tracking-wider text-emerald-400 bg-emerald-950/60 border border-emerald-500/30 rounded-full flex items-center gap-1.5">
-                  <Zap className="w-3.5 h-3.5 text-emerald-400" /> Monad Ecosystem Inspired
+              <div className="flex flex-wrap items-center justify-center sm:justify-start gap-1.5 sm:gap-2 mb-1">
+                <span className="px-2.5 py-0.5 sm:px-3 sm:py-1 text-[10px] sm:text-xs font-bold uppercase tracking-wider text-emerald-400 bg-emerald-950/60 border border-emerald-500/30 rounded-full flex items-center gap-1">
+                  <Zap className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-emerald-400" /> Monad Network
                 </span>
-                <span className="px-3 py-1 text-xs font-semibold text-purple-300 bg-purple-950/60 border border-purple-500/30 rounded-full flex items-center gap-1.5">
+                <span className="px-2.5 py-0.5 sm:px-3 sm:py-1 text-[10px] sm:text-xs font-semibold text-purple-300 bg-purple-950/60 border border-purple-500/30 rounded-full flex items-center gap-1">
                   Contract: {MONAD_NFT_CONFIG.contractAddress.slice(0, 6)}...{MONAD_NFT_CONFIG.contractAddress.slice(-4)}
                 </span>
               </div>
-              <h1 className="text-3xl sm:text-4xl font-extrabold text-white tracking-tight font-outfit">
+              <h1 className="text-2xl sm:text-4xl font-extrabold text-white tracking-tight font-outfit">
                 Chog World <span className="text-transparent bg-clip-text bg-gradient-to-r from-purple-400 via-emerald-400 to-cyan-400">— Your Chog, Your Identity</span>
               </h1>
-              <p className="text-slate-400 text-sm mt-1">
+              <p className="text-slate-400 text-xs sm:text-sm mt-1 hidden xs:block">
                 Explore the 2D real-time multiplayer island with official Chog Genesis artwork or verified wallet NFTs.
               </p>
             </div>
@@ -147,36 +147,36 @@ export const StartScreen: React.FC<StartScreenProps> = ({ onStart }) => {
         </div>
 
         {/* Mode Switch */}
-        <div className="grid grid-cols-2 gap-3 bg-slate-950/80 p-1.5 rounded-2xl border border-slate-800">
+        <div className="grid grid-cols-2 gap-2 sm:gap-3 bg-slate-950/80 p-1.5 rounded-2xl border border-slate-800">
           <button
             type="button"
             onClick={() => setMode('simulation')}
-            className={`py-3 px-4 rounded-xl text-xs sm:text-sm font-bold transition flex items-center justify-center gap-2 ${
+            className={`py-2.5 sm:py-3 px-2 sm:px-4 rounded-xl text-xs sm:text-sm font-bold transition flex items-center justify-center gap-1.5 ${
               mode === 'simulation'
                 ? 'bg-purple-900/80 text-white border border-purple-500/50 shadow-lg shadow-purple-950/50'
                 : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900/50'
             }`}
           >
-            <Sparkles className="w-4 h-4 text-purple-400" /> 🎮 Simulation Mode (Instant Demo)
+            <Sparkles className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-purple-400" /> <span>Simulation</span>
           </button>
 
           <button
             type="button"
             onClick={() => setMode('real_nft')}
-            className={`py-3 px-4 rounded-xl text-xs sm:text-sm font-bold transition flex items-center justify-center gap-2 ${
+            className={`py-2.5 sm:py-3 px-2 sm:px-4 rounded-xl text-xs sm:text-sm font-bold transition flex items-center justify-center gap-1.5 ${
               mode === 'real_nft'
                 ? 'bg-emerald-900/80 text-white border border-emerald-500/50 shadow-lg shadow-emerald-950/50'
                 : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900/50'
             }`}
           >
-            <ShieldCheck className="w-4 h-4 text-emerald-400" /> ⚡ Real NFT Mode (Monad Wallet)
+            <ShieldCheck className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-emerald-400" /> <span>Real NFT</span>
           </button>
         </div>
 
         {/* Form Body */}
-        <form onSubmit={handleEnterWorld} className="flex flex-col gap-6">
-          <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 bg-slate-950/60 border border-slate-800 rounded-2xl p-4">
-            <label className="text-sm font-semibold text-slate-300 flex items-center gap-2 whitespace-nowrap">
+        <form onSubmit={handleEnterWorld} className="flex flex-col gap-4 sm:gap-6">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2 sm:gap-3 bg-slate-950/60 border border-slate-800 rounded-2xl p-3 sm:p-4">
+            <label className="text-xs sm:text-sm font-semibold text-slate-300 flex items-center gap-2 whitespace-nowrap">
               <User className="w-4 h-4 text-purple-400" /> Player Nickname:
             </label>
             <div className="flex items-center gap-2 w-full">
@@ -186,46 +186,47 @@ export const StartScreen: React.FC<StartScreenProps> = ({ onStart }) => {
                 onChange={(e) => setNickname(e.target.value)}
                 maxLength={18}
                 required
-                className="w-full bg-slate-900 border border-purple-500/30 rounded-xl px-4 py-2.5 text-white font-medium focus:outline-none focus:border-purple-400 focus:ring-2 focus:ring-purple-500/20 transition"
+                className="w-full bg-slate-900 border border-purple-500/30 rounded-xl px-3 sm:px-4 py-2 text-xs sm:text-sm text-white font-medium focus:outline-none focus:border-purple-400"
                 placeholder="Enter nickname..."
               />
               <button
                 type="button"
                 onClick={handleRandomizeName}
-                className="px-3 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold rounded-xl border border-slate-700 transition whitespace-nowrap"
+                className="px-2.5 sm:px-3 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 text-[11px] sm:text-xs font-semibold rounded-xl border border-slate-700 transition whitespace-nowrap"
               >
-                🎲 Randomize
+                🎲 Random
               </button>
             </div>
           </div>
 
           {mode === 'simulation' ? (
             <div>
-              <div className="flex items-center justify-between mb-3">
-                <label className="text-sm font-bold text-slate-200 flex items-center gap-2">
-                  <Sparkles className="w-4 h-4 text-purple-400" /> Select Chog Genesis Character Preset:
+              <div className="flex items-center justify-between mb-2 sm:mb-3">
+                <label className="text-xs sm:text-sm font-bold text-slate-200 flex items-center gap-2">
+                  <Sparkles className="w-4 h-4 text-purple-400" /> Select Chog Genesis Character:
                 </label>
-                <span className="text-xs text-amber-400 font-semibold bg-amber-950/60 px-2 py-0.5 rounded border border-amber-500/30">
+                <span className="text-[10px] sm:text-xs text-amber-400 font-semibold bg-amber-950/60 px-2 py-0.5 rounded border border-amber-500/30">
                   SIMULATED DEMO
                 </span>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+              {/* 2-column grid on mobile, 4-column on desktop */}
+              <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-2.5 sm:gap-4">
                 {CHOG_CHARACTERS.map((char) => {
                   const isSelected = simulatedChar.id === char.id;
                   return (
                     <div
                       key={char.id}
                       onClick={() => setSimulatedChar(char)}
-                      className={`relative cursor-pointer rounded-2xl p-4 border transition-all duration-200 flex flex-col justify-between ${
+                      className={`relative cursor-pointer rounded-2xl p-2.5 sm:p-4 border transition-all duration-200 flex flex-col justify-between ${
                         isSelected
                           ? 'bg-slate-800/90 border-purple-400 ring-2 ring-purple-500/50 shadow-lg scale-[1.02]'
                           : 'bg-slate-950/40 border-slate-800 hover:border-slate-700 hover:bg-slate-900/60'
                       }`}
                     >
-                      <div className="flex items-center justify-between mb-2">
+                      <div className="flex items-center justify-between mb-1 sm:mb-2">
                         <span
-                          className="px-2 py-0.5 text-[10px] font-bold rounded uppercase"
+                          className="px-1.5 py-0.5 text-[9px] sm:text-[10px] font-bold rounded uppercase"
                           style={{
                             backgroundColor: `${char.colorHex}25`,
                             color: char.colorHex,
@@ -234,11 +235,11 @@ export const StartScreen: React.FC<StartScreenProps> = ({ onStart }) => {
                         >
                           {char.rarity}
                         </span>
-                        <span className="text-[11px] font-mono text-slate-400">{char.simulatedTokenId}</span>
+                        <span className="text-[10px] sm:text-[11px] font-mono text-slate-400">{char.simulatedTokenId}</span>
                       </div>
 
                       <div
-                        className="relative w-20 h-20 mx-auto my-2 rounded-2xl border-2 border-slate-700 overflow-hidden shadow-md"
+                        className="relative w-14 h-14 sm:w-20 sm:h-20 mx-auto my-1 sm:my-2 rounded-2xl border-2 border-slate-700 overflow-hidden shadow-md"
                         style={{ backgroundColor: `${char.colorHex}20` }}
                       >
                         <img
@@ -248,9 +249,9 @@ export const StartScreen: React.FC<StartScreenProps> = ({ onStart }) => {
                         />
                       </div>
 
-                      <div className="text-center mt-2">
-                        <h3 className="font-bold text-slate-100 text-sm">{char.name}</h3>
-                        <p className="text-xs text-slate-400 mt-1 line-clamp-2">{char.tagline}</p>
+                      <div className="text-center mt-1">
+                        <h3 className="font-bold text-slate-100 text-xs sm:text-sm truncate">{char.name}</h3>
+                        <p className="text-[10px] sm:text-xs text-slate-400 mt-0.5 line-clamp-1 sm:line-clamp-2">{char.tagline}</p>
                       </div>
                     </div>
                   );
@@ -258,19 +259,19 @@ export const StartScreen: React.FC<StartScreenProps> = ({ onStart }) => {
               </div>
             </div>
           ) : (
-            <div className="flex flex-col gap-4">
-              <div className="bg-slate-950/80 border border-slate-800 rounded-2xl p-4 flex flex-col sm:flex-row items-center justify-between gap-4">
+            <div className="flex flex-col gap-3 sm:gap-4">
+              <div className="bg-slate-950/80 border border-slate-800 rounded-2xl p-3 sm:p-4 flex flex-col sm:flex-row items-center justify-between gap-3 sm:gap-4">
                 <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-xl bg-emerald-950/80 border border-emerald-500/40 flex items-center justify-center text-emerald-400">
-                    <Wallet className="w-5 h-5" />
+                  <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-emerald-950/80 border border-emerald-500/40 flex items-center justify-center text-emerald-400 shrink-0">
+                    <Wallet className="w-4 h-4 sm:w-5 sm:h-5" />
                   </div>
                   <div>
-                    <h3 className="text-sm font-bold text-slate-100">
+                    <h3 className="text-xs sm:text-sm font-bold text-slate-100">
                       {walletState.isConnected
                         ? `Connected: ${walletState.address?.slice(0, 6)}...${walletState.address?.slice(-4)}`
                         : 'Connect Monad Wallet'}
                     </h3>
-                    <p className="text-xs text-slate-400 mt-0.5">
+                    <p className="text-[11px] sm:text-xs text-slate-400 mt-0.5">
                       {walletState.isConnected
                         ? walletState.isMonadNetwork
                           ? `Active on ${MONAD_NFT_CONFIG.network.name}`
@@ -284,7 +285,7 @@ export const StartScreen: React.FC<StartScreenProps> = ({ onStart }) => {
                   <button
                     type="button"
                     onClick={handleConnectWallet}
-                    className="w-full sm:w-auto px-5 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-xl text-xs shadow-lg transition flex items-center justify-center gap-2"
+                    className="w-full sm:w-auto px-4 py-2 sm:px-5 sm:py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-xl text-xs shadow-lg transition flex items-center justify-center gap-2"
                   >
                     <Wallet className="w-4 h-4" /> Connect Wallet
                   </button>
@@ -292,7 +293,7 @@ export const StartScreen: React.FC<StartScreenProps> = ({ onStart }) => {
                   <button
                     type="button"
                     onClick={handleSwitchNetwork}
-                    className="w-full sm:w-auto px-5 py-2.5 bg-amber-600 hover:bg-amber-500 text-white font-bold rounded-xl text-xs shadow-lg transition flex items-center justify-center gap-2"
+                    className="w-full sm:w-auto px-4 py-2 sm:px-5 sm:py-2.5 bg-amber-600 hover:bg-amber-500 text-white font-bold rounded-xl text-xs shadow-lg transition flex items-center justify-center gap-2"
                   >
                     <AlertTriangle className="w-4 h-4" /> Switch to Monad
                   </button>
@@ -301,9 +302,9 @@ export const StartScreen: React.FC<StartScreenProps> = ({ onStart }) => {
                     type="button"
                     onClick={() => walletState.address && fetchNFTsForWallet(walletState.address)}
                     disabled={loadingNFTs}
-                    className="px-3.5 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold rounded-xl border border-slate-700 transition flex items-center gap-1.5"
+                    className="px-3 py-1.5 sm:px-3.5 sm:py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold rounded-xl border border-slate-700 transition flex items-center gap-1.5"
                   >
-                    <RefreshCw className={`w-3.5 h-3.5 ${loadingNFTs ? 'animate-spin' : ''}`} /> Refresh NFTs
+                    <RefreshCw className={`w-3.5 h-3.5 ${loadingNFTs ? 'animate-spin' : ''}`} /> Refresh
                   </button>
                 )}
               </div>
@@ -317,74 +318,74 @@ export const StartScreen: React.FC<StartScreenProps> = ({ onStart }) => {
 
               {walletState.isConnected && walletState.isMonadNetwork && (
                 <div>
-                  <div className="flex items-center justify-between mb-3">
-                    <label className="text-sm font-bold text-slate-200 flex items-center gap-2">
+                  <div className="flex items-center justify-between mb-2 sm:mb-3">
+                    <label className="text-xs sm:text-sm font-bold text-slate-200 flex items-center gap-2">
                       <ShieldCheck className="w-4 h-4 text-emerald-400" /> Your Verified Chog Genesis NFTs ({ownedNFTs.length}):
                     </label>
                     <a
                       href={MONAD_NFT_CONFIG.openseaUrl}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="text-xs text-emerald-400 hover:underline flex items-center gap-1"
+                      className="text-[11px] sm:text-xs text-emerald-400 hover:underline flex items-center gap-1"
                     >
-                      OpenSea Collection <ExternalLink className="w-3 h-3" />
+                      OpenSea <ExternalLink className="w-3 h-3" />
                     </a>
                   </div>
 
                   {loadingNFTs ? (
-                    <div className="py-12 text-center text-slate-400 bg-slate-950/40 rounded-2xl border border-slate-800 flex flex-col items-center justify-center gap-2">
-                      <RefreshCw className="w-6 h-6 text-emerald-400 animate-spin" />
+                    <div className="py-8 text-center text-slate-400 bg-slate-950/40 rounded-2xl border border-slate-800 flex flex-col items-center justify-center gap-2 text-xs">
+                      <RefreshCw className="w-5 h-5 text-emerald-400 animate-spin" />
                       <span>Reading Monad EVM contract balance & metadata...</span>
                     </div>
                   ) : ownedNFTs.length === 0 ? (
-                    <div className="p-6 text-center bg-amber-950/20 border border-amber-500/30 rounded-2xl text-amber-200 text-xs flex flex-col items-center gap-3">
-                      <AlertTriangle className="w-8 h-8 text-amber-400" />
+                    <div className="p-4 sm:p-6 text-center bg-amber-950/20 border border-amber-500/30 rounded-2xl text-amber-200 text-xs flex flex-col items-center gap-2.5">
+                      <AlertTriangle className="w-6 h-6 sm:w-8 sm:h-8 text-amber-400" />
                       <div>
-                        <strong className="text-amber-300 text-sm block">No Chog Genesis NFT Found</strong>
-                        <p className="mt-1 opacity-90">
-                          Connected wallet <strong>{walletState.address?.slice(0, 6)}...{walletState.address?.slice(-4)}</strong> does not hold a Chog Genesis NFT on contract <code className="text-purple-300">{MONAD_NFT_CONFIG.contractAddress}</code>.
+                        <strong className="text-amber-300 text-xs sm:text-sm block">No Chog Genesis NFT Found</strong>
+                        <p className="mt-0.5 opacity-90 text-[11px]">
+                          Wallet <strong>{walletState.address?.slice(0, 6)}...{walletState.address?.slice(-4)}</strong> does not hold a Chog Genesis NFT on contract <code className="text-purple-300">{MONAD_NFT_CONFIG.contractAddress.slice(0, 8)}...</code>.
                         </p>
                       </div>
-                      <div className="flex items-center gap-3 mt-1">
+                      <div className="flex flex-wrap items-center justify-center gap-2 mt-1">
                         <a
                           href={MONAD_NFT_CONFIG.openseaUrl}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-xl text-xs transition flex items-center gap-1.5"
+                          className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-xl text-xs transition flex items-center gap-1"
                         >
-                          View OpenSea Collection <ExternalLink className="w-3 h-3" />
+                          View OpenSea <ExternalLink className="w-3 h-3" />
                         </a>
                         <button
                           type="button"
                           onClick={() => setMode('simulation')}
-                          className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 font-semibold rounded-xl text-xs transition"
+                          className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 font-semibold rounded-xl text-xs transition"
                         >
-                          Play in Simulation Mode
+                          Use Simulation Mode
                         </button>
                       </div>
                     </div>
                   ) : (
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                    <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-3 gap-2.5 sm:gap-4">
                       {ownedNFTs.map((item) => {
                         const isSelected = selectedNFT?.tokenId === item.tokenId;
                         return (
                           <div
                             key={item.tokenId}
                             onClick={() => setSelectedNFT(item)}
-                            className={`relative cursor-pointer rounded-2xl p-4 border transition-all duration-200 flex flex-col justify-between ${
+                            className={`relative cursor-pointer rounded-2xl p-2.5 sm:p-4 border transition-all duration-200 flex flex-col justify-between ${
                               isSelected
                                 ? 'bg-slate-800/90 border-emerald-400 ring-2 ring-emerald-500/50 shadow-lg scale-[1.02]'
                                 : 'bg-slate-950/40 border-slate-800 hover:border-slate-700 hover:bg-slate-900/60'
                             }`}
                           >
-                            <div className="flex items-center justify-between mb-2">
-                              <span className="px-2 py-0.5 text-[10px] font-bold rounded uppercase bg-emerald-950 text-emerald-400 border border-emerald-500/40 flex items-center gap-1">
-                                <CheckCircle2 className="w-3 h-3" /> VERIFIED
+                            <div className="flex items-center justify-between mb-1.5">
+                              <span className="px-1.5 py-0.5 text-[9px] font-bold rounded uppercase bg-emerald-950 text-emerald-400 border border-emerald-500/40 flex items-center gap-1">
+                                <CheckCircle2 className="w-2.5 h-2.5" /> VERIFIED
                               </span>
-                              <span className="text-[11px] font-mono text-slate-300">#{item.tokenId}</span>
+                              <span className="text-[10px] font-mono text-slate-300">#{item.tokenId}</span>
                             </div>
 
-                            <div className="w-24 h-24 mx-auto my-2 rounded-2xl border-2 border-slate-700 overflow-hidden bg-slate-950 shadow-md">
+                            <div className="w-16 h-16 sm:w-24 sm:h-24 mx-auto my-1 rounded-2xl border-2 border-slate-700 overflow-hidden bg-slate-950 shadow-md">
                               <img
                                 src={item.imageUrl}
                                 alt={item.name}
@@ -396,8 +397,8 @@ export const StartScreen: React.FC<StartScreenProps> = ({ onStart }) => {
                             </div>
 
                             <div className="text-center mt-1">
-                              <h3 className="font-bold text-slate-100 text-sm truncate">{item.name}</h3>
-                              <p className="text-[11px] text-slate-400 truncate mt-0.5">Skin: {item.traits.skin}</p>
+                              <h3 className="font-bold text-slate-100 text-xs truncate">{item.name}</h3>
+                              <p className="text-[10px] text-slate-400 truncate mt-0.5">Skin: {item.traits.skin}</p>
                             </div>
                           </div>
                         );
@@ -410,13 +411,13 @@ export const StartScreen: React.FC<StartScreenProps> = ({ onStart }) => {
           )}
 
           {/* Footer */}
-          <div className="flex flex-col sm:flex-row items-center justify-between gap-4 pt-4 border-t border-slate-800">
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-3 border-t border-slate-800">
             <div className="text-xs text-slate-400 flex items-center gap-2">
               <Layers className="w-4 h-4 text-purple-400 shrink-0" />
               <span>
                 Mode: <strong className="text-slate-200 uppercase">{mode.replace('_', ' ')}</strong>
                 {mode === 'real_nft' && selectedNFT && (
-                  <span className="ml-2 text-emerald-400 font-bold">({selectedNFT.name})</span>
+                  <span className="ml-1 text-emerald-400 font-bold">({selectedNFT.name})</span>
                 )}
               </span>
             </div>
@@ -424,13 +425,13 @@ export const StartScreen: React.FC<StartScreenProps> = ({ onStart }) => {
             <button
               type="submit"
               disabled={mode === 'real_nft' && (!walletState.isConnected || !selectedNFT)}
-              className={`w-full sm:w-auto px-8 py-3.5 font-bold rounded-2xl shadow-lg transition-all transform hover:-translate-y-0.5 flex items-center justify-center gap-2 text-base font-outfit ${
+              className={`w-full sm:w-auto px-6 sm:px-8 py-3 font-bold rounded-2xl shadow-lg transition-all transform hover:-translate-y-0.5 flex items-center justify-center gap-2 text-sm sm:text-base font-outfit ${
                 mode === 'real_nft' && (!walletState.isConnected || !selectedNFT)
                   ? 'bg-slate-800 text-slate-500 cursor-not-allowed border border-slate-700'
                   : 'bg-gradient-to-r from-purple-600 to-emerald-500 hover:from-purple-500 hover:to-emerald-400 text-white shadow-purple-600/30'
               }`}
             >
-              <Play className="w-5 h-5 fill-current" /> Enter Chog World
+              <Play className="w-4 h-4 sm:w-5 sm:h-5 fill-current" /> Enter Chog World
             </button>
           </div>
         </form>

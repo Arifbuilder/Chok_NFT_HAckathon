@@ -46,6 +46,12 @@ export const PhaserGame = forwardRef<PhaserGameHandle, PhaserGameProps>(
         parent: gameContainerRef.current,
         width: 1000,
         height: 650,
+        scale: {
+          mode: Phaser.Scale.FIT,
+          autoCenter: Phaser.Scale.CENTER_BOTH,
+          width: 1000,
+          height: 650,
+        },
         pixelArt: true,
         physics: {
           default: 'arcade',
@@ -83,8 +89,8 @@ export const PhaserGame = forwardRef<PhaserGameHandle, PhaserGameProps>(
     }, []);
 
     return (
-      <div className="relative w-full h-full flex items-center justify-center bg-slate-950 overflow-hidden rounded-2xl border border-purple-900/40 shadow-2xl shadow-purple-950/50">
-        <div ref={gameContainerRef} className="rounded-xl overflow-hidden shadow-inner" />
+      <div className="relative w-full h-full flex items-center justify-center bg-slate-950 overflow-hidden rounded-2xl border border-purple-900/40 shadow-2xl shadow-purple-950/50 p-1">
+        <div ref={gameContainerRef} className="w-full h-full flex items-center justify-center rounded-xl overflow-hidden shadow-inner max-h-full" />
       </div>
     );
   }

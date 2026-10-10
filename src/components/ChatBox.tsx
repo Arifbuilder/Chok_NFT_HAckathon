@@ -1,14 +1,15 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { ChatMessage } from '../types/game';
 import { socketService } from '../services/socket';
-import { MessageSquare, Send, Sparkles, User, CheckCircle2 } from 'lucide-react';
+import { MessageSquare, Send, Sparkles, User, CheckCircle2, X } from 'lucide-react';
 
 interface ChatBoxProps {
   chatHistory: ChatMessage[];
   currentUserId: string;
+  onClose?: () => void;
 }
 
-export const ChatBox: React.FC<ChatBoxProps> = ({ chatHistory, currentUserId }) => {
+export const ChatBox: React.FC<ChatBoxProps> = ({ chatHistory, currentUserId, onClose }) => {
   const [inputText, setInputText] = useState('');
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
@@ -29,13 +30,20 @@ export const ChatBox: React.FC<ChatBoxProps> = ({ chatHistory, currentUserId }) 
   };
 
   return (
-    <div className="w-80 h-[360px] bg-slate-900/85 border border-purple-500/30 rounded-2xl p-3 shadow-2xl backdrop-blur-md flex flex-col justify-between text-white">
+    <div className="w-80 max-w-[90vw] h-[360px] max-h-[50vh] sm:max-h-[360px] bg-slate-900/95 border border-purple-500/30 rounded-2xl p-3 shadow-2xl backdrop-blur-md flex flex-col justify-between text-white">
       {/* Top Header */}
       <div className="flex items-center justify-between border-b border-slate-800 pb-2 mb-2">
         <div className="flex items-center gap-2 text-xs font-bold text-slate-200">
           <MessageSquare className="w-4 h-4 text-purple-400" /> Chog World Chat
         </div>
-        <span className="text-[10px] text-slate-500 font-mono">Live Sync</span>
+        <div className="flex items-center gap-2">
+          <span className="text-[10px] text-slate-500 font-mono">Live Sync</span>
+          {onClose && (
+            <button onClick={onClose} className="p-1 text-slate-400 hover:text-white rounded-lg">
+              <X className="w-4 h-4" />
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Messages Scroll Area */}
