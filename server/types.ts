@@ -13,6 +13,11 @@ export interface ServerPlayer {
   } | null;
   discoveredLocations: string[];
   joinedAt: number;
+  isRealNFT?: boolean;
+  isVerifiedNFT?: boolean;
+  nftTokenId?: string;
+  nftImageUrl?: string;
+  walletAddress?: string;
 }
 
 export interface ServerChatMessage {
@@ -23,6 +28,7 @@ export interface ServerChatMessage {
   text: string;
   timestamp: number;
   isSystem?: boolean;
+  isVerifiedNFT?: boolean;
 }
 
 export interface ServerRoom {

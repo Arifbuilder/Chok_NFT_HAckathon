@@ -1,4 +1,4 @@
-export type RarityRank = 'Genesis' | 'Legendary' | 'Epic' | 'Rare';
+export type RarityRank = 'Genesis' | 'Legendary' | 'Epic' | 'Rare' | 'Common';
 
 export interface ChogTraits {
   skin: string;
@@ -7,6 +7,7 @@ export interface ChogTraits {
   aura: string;
   expression: string;
   clothing: string;
+  [key: string]: string;
 }
 
 export interface ChogCharacter {
@@ -28,6 +29,10 @@ export interface ChogCharacter {
     particleColor: number;
   };
   bio: string;
+  isRealNFT?: boolean;
+  nftImageUrl?: string;
+  nftTokenId?: string;
+  ownerAddress?: string;
 }
 
 export interface PlayerState {
@@ -45,6 +50,11 @@ export interface PlayerState {
   } | null;
   discoveredLocations: string[];
   joinedAt: number;
+  isRealNFT?: boolean;
+  isVerifiedNFT?: boolean;
+  nftTokenId?: string;
+  nftImageUrl?: string;
+  ownerAddress?: string;
 }
 
 export interface ChatMessage {
@@ -55,6 +65,7 @@ export interface ChatMessage {
   text: string;
   timestamp: number;
   isSystem?: boolean;
+  isVerifiedNFT?: boolean;
 }
 
 export interface IslandLocation {

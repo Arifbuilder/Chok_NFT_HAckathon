@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { ChatMessage } from '../types/game';
 import { socketService } from '../services/socket';
-import { MessageSquare, Send, Sparkles, User } from 'lucide-react';
+import { MessageSquare, Send, Sparkles, User, CheckCircle2 } from 'lucide-react';
 
 interface ChatBoxProps {
   chatHistory: ChatMessage[];
@@ -67,8 +67,15 @@ export const ChatBox: React.FC<ChatBoxProps> = ({ chatHistory, currentUserId }) 
               <div className="flex items-center justify-between text-[10px] text-slate-400">
                 <span className={`font-bold flex items-center gap-1 ${isSelf ? 'text-purple-300' : 'text-emerald-400'}`}>
                   <User className="w-3 h-3" /> {msg.senderNickname}
+                  {msg.isVerifiedNFT && (
+                    <span title="Verified Monad NFT Holder">
+                      <CheckCircle2 className="w-3 h-3 text-emerald-400" />
+                    </span>
+                  )}
                 </span>
-                <span className="opacity-60">{new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                <span className="opacity-60">
+                  {new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                </span>
               </div>
               <p className="text-slate-200 font-normal break-words mt-0.5">{msg.text}</p>
             </div>

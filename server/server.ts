@@ -18,9 +18,13 @@ const io = new Server(httpServer, {
 
 const PORT = process.env.PORT || 3001;
 
-// API endpoints for healthcheck and room state inspection
 app.get('/api/health', (req, res) => {
-  res.json({ status: 'ok', service: 'Chog World Server', timestamp: Date.now() });
+  res.json({
+    status: 'ok',
+    service: 'Chog World Server',
+    contractAddress: process.env.MONAD_NFT_CONTRACT || '0xc96d31f8626c6d03fae5dcd3d61e3fb9f4a73763',
+    timestamp: Date.now(),
+  });
 });
 
 app.get('/api/room/:roomId?', (req, res) => {
@@ -36,35 +40,56 @@ app.get('/api/room/:roomId?', (req, res) => {
 io.on('connection', (socket: Socket) => {
   let currentRoomId = 'chog-island-1';
 
-  socket.on('joinRoom', (data: { roomId?: string; nickname: string; characterId: string; x?: number; y?: number }) => {
-    currentRoomId = data.roomId || 'chog-island-1';
-    socket.join(currentRoomId);
+  socket.on(
+    'joinRoom',
+    async (data: {
+      roomId?: string;
+      nickname: string;
+      characterId: string;
+      x?: number;
+      y?: number;
+      isRealNFT?: boolean;
+      nftTokenId?: string;
+      nftImageUrl?: string;
+      walletAddress?: string;
+    }) => {
+      currentRoomId = data.roomId || 'chog-island-1';
+      socket.join(currentRoomId);
 
-    const { room, newPlayer } = roomManager.addPlayer(currentRoomId, {
-      id: socket.id,
-      nickname: data.nickname,
-      characterId: data.characterId,
-      x: data.x,
-      y: data.y,
-    });
+      const { room, newPlayer } = await roomManager.addPlayer(currentRoomId, {
+        id: socket.id,
+        nickname: data.nickname,
+        characterId: data.characterId,
+        x: data.x,
+        y: data.y,
+        isRealNFT: data.isRealNFT,
+        nftTokenId: data.nftTokenId,
+        nftImageUrl: data.nftImageUrl,
+        walletAddress: data.walletAddress,
+      });
 
-    // Send initial room sync to joined player
-    socket.emit('roomInit', {
-      selfId: socket.id,
-      room,
-    });
+      // Send room init to joined player
+      socket.emit('roomInit', {
+        selfId: socket.id,
+        room,
+      });
 
-    // Notify other players in the room
-    socket.to(currentRoomId).emit('playerJoined', newPlayer);
+      // Notify other players in the room
+      socket.to(currentRoomId).emit('playerJoined', newPlayer);
 
-    // Broadcast new chat message (join notice)
-    const latestMsg = room.chatHistory[room.chatHistory.length - 1];
-    if (latestMsg) {
-      io.to(currentRoomId).emit('chatBroadcast', latestMsg);
+      // Broadcast join notice
+      const latestMsg = room.chatHistory[room.chatHistory.length - 1];
+      if (latestMsg) {
+        io.to(currentRoomId).emit('chatBroadcast', latestMsg);
+      }
+
+      console.log(
+        `🎮 Player joined: ${newPlayer.nickname} (${newPlayer.characterId}) [Real NFT: ${
+          newPlayer.isVerifiedNFT ? 'YES #' + newPlayer.nftTokenId : 'NO'
+        }] Socket: ${socket.id}`
+      );
     }
-
-    console.log(`🎮 Player joined: ${newPlayer.nickname} (${newPlayer.characterId}) [Socket: ${socket.id}] in Room: ${currentRoomId}`);
-  });
+  );
 
   socket.on('move', (moveData: { x: number; y: number; direction?: 'up' | 'down' | 'left' | 'right'; isMoving?: boolean }) => {
     const updatedPlayer = roomManager.updatePlayerMove(currentRoomId, socket.id, moveData);
@@ -87,6 +112,7 @@ io.on('connection', (socket: Socket) => {
         nickname: updatedPlayer.nickname,
         characterId: updatedPlayer.characterId,
         emote: updatedPlayer.currentEmote,
+        isVerifiedNFT: updatedPlayer.isVerifiedNFT,
       });
     }
   });
@@ -103,6 +129,7 @@ io.on('connection', (socket: Socket) => {
       characterId: player.characterId,
       text: data.text,
       timestamp: Date.now(),
+      isVerifiedNFT: player.isVerifiedNFT,
     });
 
     io.to(currentRoomId).emit('chatBroadcast', chatMsg);

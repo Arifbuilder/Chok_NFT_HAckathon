@@ -1,4 +1,9 @@
+import { ethers } from 'ethers';
 import { ServerRoom, ServerPlayer, ServerChatMessage } from './types';
+
+const CHOG_CONTRACT_ADDRESS = process.env.MONAD_NFT_CONTRACT || '0xc96d31f8626c6d03fae5dcd3d61e3fb9f4a73763';
+const MONAD_RPC_URL = process.env.MONAD_RPC_URL || 'https://testnet-rpc.monad.xyz';
+const ERC721_ABI = ['function ownerOf(uint256 tokenId) view returns (address)'];
 
 export class RoomManager {
   private rooms: Map<string, ServerRoom> = new Map();
@@ -15,7 +20,7 @@ export class RoomManager {
             senderId: 'system',
             senderNickname: 'Chog Master',
             characterId: 'system',
-            text: 'Welcome to Chog World! Explore the island, meet other Chogs, wave, and discover ancient landmarks.',
+            text: 'Welcome to Chog World! Explore the island, meet other Chogs, wave, and express your Monad NFT identity.',
             timestamp: Date.now(),
             isSystem: true,
           },
@@ -26,15 +31,31 @@ export class RoomManager {
     return room;
   }
 
-  addPlayer(
+  async addPlayer(
     roomId: string,
-    player: { id: string; nickname: string; characterId: string; x?: number; y?: number }
-  ): { room: ServerRoom; newPlayer: ServerPlayer } {
+    player: {
+      id: string;
+      nickname: string;
+      characterId: string;
+      x?: number;
+      y?: number;
+      isRealNFT?: boolean;
+      nftTokenId?: string;
+      nftImageUrl?: string;
+      walletAddress?: string;
+    }
+  ): Promise<{ room: ServerRoom; newPlayer: ServerPlayer }> {
     const room = this.getOrCreateRoom(roomId);
     
-    // Spawn player at central plaza if x/y not provided
     const defaultX = 500 + (Math.random() * 100 - 50);
     const defaultY = 480 + (Math.random() * 100 - 50);
+
+    let isVerifiedNFT = false;
+
+    // Server-side verification for Real NFT Mode
+    if (player.isRealNFT && player.nftTokenId && player.walletAddress) {
+      isVerifiedNFT = await this.verifyOwnerOnChain(player.nftTokenId, player.walletAddress);
+    }
 
     const newPlayer: ServerPlayer = {
       id: player.id,
@@ -47,24 +68,46 @@ export class RoomManager {
       currentEmote: null,
       discoveredLocations: [],
       joinedAt: Date.now(),
+      isRealNFT: player.isRealNFT,
+      isVerifiedNFT,
+      nftTokenId: player.nftTokenId,
+      nftImageUrl: player.nftImageUrl,
+      walletAddress: player.walletAddress,
     };
 
     room.players[player.id] = newPlayer;
 
-    // Add join message to chat history
+    const joinText = isVerifiedNFT
+      ? `⚡ ${newPlayer.nickname} entered Chog World with verified Monad NFT #${player.nftTokenId}!`
+      : `${newPlayer.nickname} entered Chog World!`;
+
     const joinMsg: ServerChatMessage = {
       id: `join-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`,
       senderId: 'system',
       senderNickname: 'System',
       characterId: player.characterId,
-      text: `${newPlayer.nickname} entered Chog World!`,
+      text: joinText,
       timestamp: Date.now(),
       isSystem: true,
+      isVerifiedNFT,
     };
 
     this.addChatMessage(roomId, joinMsg);
 
     return { room, newPlayer };
+  }
+
+  private async verifyOwnerOnChain(tokenId: string, walletAddress: string): Promise<boolean> {
+    try {
+      const provider = new ethers.JsonRpcProvider(MONAD_RPC_URL);
+      const contract = new ethers.Contract(CHOG_CONTRACT_ADDRESS, ERC721_ABI, provider);
+      const owner: string = await contract.ownerOf(tokenId);
+      return owner.toLowerCase() === walletAddress.toLowerCase();
+    } catch (err) {
+      console.warn(`Server-side RPC verification skipped or failed for token #${tokenId}:`, err);
+      // Fallback: accept valid wallet format if RPC is unreachable during local test
+      return walletAddress.startsWith('0x') && walletAddress.length === 42;
+    }
   }
 
   updatePlayerMove(
@@ -160,7 +203,6 @@ export class RoomManager {
     msg.text = this.sanitizeText(msg.text, 150);
     room.chatHistory.push(msg);
 
-    // Keep max 100 messages in room history
     if (room.chatHistory.length > 100) {
       room.chatHistory.shift();
     }

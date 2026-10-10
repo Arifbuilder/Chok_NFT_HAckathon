@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useRef } from 'react';
 import { CHOG_CHARACTERS } from './data/characters';
 import { ChogCharacter, PlayerState, ChatMessage } from './types/game';
 import { socketService } from './services/socket';
@@ -10,10 +10,11 @@ import { PlayerList } from './components/PlayerList';
 import { DiscoveryBanner } from './components/DiscoveryBanner';
 import { ConnectionBadge } from './components/ConnectionBadge';
 import { EmoteBar } from './components/EmoteBar';
-import { RefreshCw, Zap, ShieldAlert } from 'lucide-react';
+import { RefreshCw, ShieldCheck, Sparkles } from 'lucide-react';
 
 export default function App() {
   const [gameStarted, setGameStarted] = useState(false);
+  const [mode, setMode] = useState<'simulation' | 'real_nft'>('simulation');
   const [nickname, setNickname] = useState('');
   const [character, setCharacter] = useState<ChogCharacter>(CHOG_CHARACTERS[0]);
 
@@ -30,12 +31,12 @@ export default function App() {
 
   const phaserRef = useRef<PhaserGameHandle>(null);
 
-  const handleStartGame = (userNickname: string, selectedChar: ChogCharacter) => {
+  const handleStartGame = (userNickname: string, selectedChar: ChogCharacter, gameMode: 'simulation' | 'real_nft') => {
     setNickname(userNickname);
     setCharacter(selectedChar);
+    setMode(gameMode);
     setGameStarted(true);
 
-    // Connect Socket.IO
     const socket = socketService.connect();
 
     socket.on('connect', () => {
@@ -109,15 +110,14 @@ export default function App() {
 
   return (
     <div className="relative w-screen h-screen bg-slate-950 overflow-hidden flex flex-col justify-between p-3 select-none">
-      {/* Top Floating Overlay Bar */}
+      {/* Top Floating Header */}
       <header className="absolute top-4 left-4 right-4 z-40 flex items-center justify-between pointer-events-none">
-        {/* Left Title & Status */}
         <div className="pointer-events-auto flex items-center gap-3">
           <div className="bg-slate-900/90 border border-purple-500/30 rounded-2xl px-4 py-2 shadow-xl backdrop-blur-md flex items-center gap-2">
             <span className="text-xl">🐸</span>
             <div>
               <h1 className="text-sm font-extrabold text-white tracking-wide font-outfit">Chog World</h1>
-              <p className="text-[10px] text-purple-300 font-medium">Monad Genesis Edition</p>
+              <p className="text-[10px] text-purple-300 font-medium">Monad NFT Edition</p>
             </div>
           </div>
 
@@ -129,11 +129,16 @@ export default function App() {
           />
         </div>
 
-        {/* Right Actions */}
         <div className="pointer-events-auto flex items-center gap-2">
-          <span className="hidden md:flex items-center gap-1.5 px-3 py-1.5 bg-amber-950/50 border border-amber-500/40 rounded-xl text-[11px] font-semibold text-amber-300">
-            <ShieldAlert className="w-3.5 h-3.5 text-amber-400" /> Simulated Demo
-          </span>
+          {mode === 'real_nft' ? (
+            <span className="hidden md:flex items-center gap-1.5 px-3 py-1.5 bg-emerald-950/70 border border-emerald-500/50 rounded-xl text-[11px] font-bold text-emerald-300 shadow-md">
+              <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" /> VERIFIED MONAD NFT HOLDER
+            </span>
+          ) : (
+            <span className="hidden md:flex items-center gap-1.5 px-3 py-1.5 bg-amber-950/50 border border-amber-500/40 rounded-xl text-[11px] font-semibold text-amber-300">
+              <Sparkles className="w-3.5 h-3.5 text-amber-400" /> SIMULATED DEMO
+            </span>
+          )}
 
           <button
             onClick={handleLeaveWorld}
@@ -144,25 +149,27 @@ export default function App() {
         </div>
       </header>
 
-      {/* Main 2D Phaser Game Engine Viewport */}
+      {/* Phaser Game Engine Viewport */}
       <main className="relative flex-1 w-full h-full flex items-center justify-center pt-14 pb-16">
         <PhaserGame
           ref={phaserRef}
           nickname={nickname}
           characterId={character.id}
+          isRealNFT={character.isRealNFT}
+          nftImageUrl={character.nftImageUrl}
+          nftTokenId={character.nftTokenId}
+          walletAddress={character.ownerAddress}
           onDiscovery={handleDiscoveryFromGame}
         />
       </main>
 
-      {/* Bottom Floating Controls Bar */}
+      {/* Bottom Floating Toolbar */}
       <footer className="absolute bottom-4 left-4 right-4 z-40 flex flex-col sm:flex-row items-center justify-between gap-3 pointer-events-none">
-        {/* Controls Hint */}
         <div className="pointer-events-auto hidden lg:flex items-center gap-2 bg-slate-900/80 border border-slate-800 rounded-2xl px-3.5 py-2 text-[11px] text-slate-400 backdrop-blur-md">
           <span className="font-bold text-slate-300">Controls:</span>
           <kbd className="px-1.5 py-0.5 bg-slate-800 border border-slate-700 rounded text-[10px] font-mono text-purple-300">WASD</kbd> or <kbd className="px-1.5 py-0.5 bg-slate-800 border border-slate-700 rounded text-[10px] font-mono text-purple-300">Arrow Keys</kbd> or <span className="text-emerald-400">Click to move</span>
         </div>
 
-        {/* Emote Toolbar */}
         <div className="pointer-events-auto">
           <EmoteBar
             character={character}
@@ -174,7 +181,6 @@ export default function App() {
           />
         </div>
 
-        {/* Right Chat Box Widget */}
         <div className="pointer-events-auto absolute bottom-14 right-0 lg:static">
           <ChatBox chatHistory={chatHistory} currentUserId={currentSocketId} />
         </div>

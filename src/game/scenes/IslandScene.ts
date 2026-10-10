@@ -20,7 +20,6 @@ export class IslandScene extends Phaser.Scene {
   private localPlayerSprite!: Phaser.GameObjects.Sprite;
   private localPlayerNameText!: Phaser.GameObjects.Text;
   private localPlayerBadgeText!: Phaser.GameObjects.Text;
-  private localPlayerEmoteBubble?: Phaser.GameObjects.Container;
 
   private remotePlayers: Map<string, RemotePlayerSprite> = new Map();
   private cursors!: Phaser.Types.Input.Keyboard.CursorKeys;
@@ -36,13 +35,17 @@ export class IslandScene extends Phaser.Scene {
 
   private localNickname = 'ChogExplorer';
   private localCharacterId = 'chog-genesis-purple';
+  private localIsRealNFT = false;
+  private localNftImageUrl?: string;
+  private localNftTokenId?: string;
+
   private localDiscoveredLocations: Set<string> = new Set();
   
   private onDiscoveryCallback?: (locationId: string, locationName: string) => void;
   private onEmoteTriggerCallback?: (type: string, text: string) => void;
 
   private lastMoveSendTime = 0;
-  private moveSendInterval = 50; // Throttle 20 updates/sec
+  private moveSendInterval = 50;
 
   constructor() {
     super({ key: 'IslandScene' });
@@ -51,45 +54,49 @@ export class IslandScene extends Phaser.Scene {
   public init(data: {
     nickname?: string;
     characterId?: string;
+    isRealNFT?: boolean;
+    nftImageUrl?: string;
+    nftTokenId?: string;
+    walletAddress?: string;
     onDiscovery?: (locationId: string, locationName: string) => void;
     onEmoteTrigger?: (type: string, text: string) => void;
   }) {
     if (data.nickname) this.localNickname = data.nickname;
     if (data.characterId) this.localCharacterId = data.characterId;
+    if (data.isRealNFT) this.localIsRealNFT = data.isRealNFT;
+    if (data.nftImageUrl) this.localNftImageUrl = data.nftImageUrl;
+    if (data.nftTokenId) this.localNftTokenId = data.nftTokenId;
     if (data.onDiscovery) this.onDiscoveryCallback = data.onDiscovery;
     if (data.onEmoteTrigger) this.onEmoteTriggerCallback = data.onEmoteTrigger;
   }
 
   public preload() {
-    // Generate all game textures procedurally
     generateGameTextures(this);
+
+    // Preload NFT image if available
+    if (this.localNftImageUrl && this.localNftTokenId) {
+      this.load.image(`nft_local_${this.localNftTokenId}`, this.localNftImageUrl);
+    }
   }
 
   public create() {
-    // World Bounds
     const MAP_WIDTH = 1200;
     const MAP_HEIGHT = 900;
     this.physics.world.setBounds(0, 0, MAP_WIDTH, MAP_HEIGHT);
 
-    // 1. Render Map Terrain & Ground
     this.renderMapTerrain(MAP_WIDTH, MAP_HEIGHT);
 
-    // 2. Obstacles Group (Physics colliders)
     this.obstaclesGroup = this.physics.add.staticGroup();
     this.setupMapObstacles(MAP_WIDTH, MAP_HEIGHT);
 
-    // 3. Render Landmark Visuals
     this.renderLandmarks();
 
-    // 4. Create Local Player Container
     this.createLocalPlayer(550 + Math.random() * 80, 480 + Math.random() * 80);
 
-    // 5. Setup Camera
     this.cameras.main.setBounds(0, 0, MAP_WIDTH, MAP_HEIGHT);
     this.cameras.main.startFollow(this.localPlayer, true, 0.1, 0.1);
     this.cameras.main.setZoom(1.1);
 
-    // 6. Setup Controls
     if (this.input.keyboard) {
       this.cursors = this.input.keyboard.createCursorKeys();
       this.wasdKeys = {
@@ -100,18 +107,18 @@ export class IslandScene extends Phaser.Scene {
       };
     }
 
-    // Pointer click-to-move
     this.input.on('pointerdown', (pointer: Phaser.Input.Pointer) => {
-      // Don't register click if clicking UI controls
       if (pointer.y < 40) return;
       this.targetClickPos = new Phaser.Math.Vector2(pointer.worldX, pointer.worldY);
     });
 
-    // 7. Setup Socket Listeners
     this.setupSocketEvents();
 
-    // Notify server of room join
-    socketService.joinRoom(this.localNickname, this.localCharacterId);
+    socketService.joinRoom(this.localNickname, this.localCharacterId, {
+      isRealNFT: this.localIsRealNFT,
+      nftTokenId: this.localNftTokenId,
+      nftImageUrl: this.localNftImageUrl,
+    });
   }
 
   private renderMapTerrain(width: number, height: number) {
@@ -125,14 +132,11 @@ export class IslandScene extends Phaser.Scene {
         } else if (x < 144 || x > width - 144 || y < 144 || y > height - 144) {
           this.add.image(x + 32, y + 32, 'tile_sand');
         } else {
-          // Inner Island Grass
           this.add.image(x + 32, y + 32, 'tile_grass');
         }
       }
     }
 
-    // Cobblestone Paths connecting locations
-    // Path 1: Plaza (750, 650) to Center (550, 480)
     for (let x = 550; x <= 750; x += TILE_SIZE) {
       this.add.image(x, 560, 'tile_path').setAlpha(0.95);
     }
@@ -140,7 +144,6 @@ export class IslandScene extends Phaser.Scene {
       this.add.image(750, y, 'tile_path').setAlpha(0.95);
     }
 
-    // Path 2: Center to Pond (250, 220)
     for (let x = 250; x <= 550; x += TILE_SIZE) {
       this.add.image(x, 340, 'tile_path').setAlpha(0.95);
     }
@@ -148,7 +151,6 @@ export class IslandScene extends Phaser.Scene {
       this.add.image(250, y, 'tile_path').setAlpha(0.95);
     }
 
-    // Path 3: Center to Shrine (750, 220)
     for (let x = 550; x <= 750; x += TILE_SIZE) {
       this.add.image(x, 340, 'tile_path').setAlpha(0.95);
     }
@@ -156,7 +158,6 @@ export class IslandScene extends Phaser.Scene {
       this.add.image(750, y, 'tile_path').setAlpha(0.95);
     }
 
-    // Central Speed Plaza Neon Flooring
     for (let px = 686; px <= 814; px += TILE_SIZE) {
       for (let py = 586; py <= 714; py += TILE_SIZE) {
         this.add.image(px, py, 'tile_plaza');
@@ -165,7 +166,6 @@ export class IslandScene extends Phaser.Scene {
   }
 
   private setupMapObstacles(width: number, height: number) {
-    // 1. Water Ocean Borders (Prevent leaving map)
     const northWall = this.add.rectangle(width / 2, 60, width, 120, 0x000000, 0);
     const southWall = this.add.rectangle(width / 2, height - 60, width, 120, 0x000000, 0);
     const westWall = this.add.rectangle(60, height / 2, 120, height, 0x000000, 0);
@@ -176,17 +176,14 @@ export class IslandScene extends Phaser.Scene {
       this.obstaclesGroup.add(w);
     });
 
-    // 2. Pond Obstacle Water Body (x: 250, y: 220)
     const pondBody = this.add.circle(250, 220, 75, 0x0288d1, 0.85);
     this.physics.add.existing(pondBody, true);
     this.obstaclesGroup.add(pondBody);
 
-    // Decorative Lily Pads in Pond
     this.add.image(220, 200, 'obj_lily');
     this.add.image(280, 230, 'obj_lily');
     this.add.image(240, 250, 'obj_lily');
 
-    // 3. Decorative Trees & Rocks as Colliders
     const treePositions = [
       { x: 380, y: 180 },
       { x: 440, y: 160 },
@@ -224,14 +221,12 @@ export class IslandScene extends Phaser.Scene {
   }
 
   private renderLandmarks() {
-    // 1. Shrine of Monad (x: 750, y: 220)
     const shrine = this.add.image(750, 200, 'obj_shrine');
     shrine.setDepth(200);
     const shrineCollider = this.add.rectangle(750, 210, 80, 50, 0x000000, 0);
     this.physics.add.existing(shrineCollider, true);
     this.obstaclesGroup.add(shrineCollider);
 
-    // Shrine Glowing Text Ring
     this.add
       .text(750, 130, '⚡ SHRINE OF MONAD', {
         fontFamily: 'Outfit, sans-serif',
@@ -242,7 +237,6 @@ export class IslandScene extends Phaser.Scene {
       })
       .setOrigin(0.5);
 
-    // 2. Pond Label
     this.add
       .text(250, 130, '💧 POND OF TRANQUILITY', {
         fontFamily: 'Outfit, sans-serif',
@@ -253,7 +247,6 @@ export class IslandScene extends Phaser.Scene {
       })
       .setOrigin(0.5);
 
-    // 3. Speed Plaza Monument
     this.add
       .text(750, 550, '🏛️ MONAD SPEED PLAZA', {
         fontFamily: 'Outfit, sans-serif',
@@ -274,14 +267,18 @@ export class IslandScene extends Phaser.Scene {
     body.setSize(36, 36);
     body.setOffset(-18, -18);
 
-    // Sprite
-    this.localPlayerSprite = this.add.sprite(0, 0, this.localCharacterId);
+    const key = this.textures.exists(`nft_local_${this.localNftTokenId}`)
+      ? `nft_local_${this.localNftTokenId}`
+      : this.localCharacterId;
+
+    this.localPlayerSprite = this.add.sprite(0, 0, key);
+    if (key.startsWith('nft_local_')) {
+      this.localPlayerSprite.setDisplaySize(44, 44);
+    }
     this.localPlayer.add(this.localPlayerSprite);
 
-    // Character Data
     const charDef = getCharacterById(this.localCharacterId);
 
-    // Overhead Nickname Label
     this.localPlayerNameText = this.add
       .text(0, -44, this.localNickname, {
         fontFamily: 'Outfit, sans-serif',
@@ -293,12 +290,17 @@ export class IslandScene extends Phaser.Scene {
       .setOrigin(0.5);
     this.localPlayer.add(this.localPlayerNameText);
 
-    // Overhead Trait Badge
+    const badgeTitle = this.localIsRealNFT
+      ? `⚡ VERIFIED MONAD NFT #${this.localNftTokenId || 'GENESIS'}`
+      : `[${charDef.rarity}] ${charDef.name}`;
+
+    const badgeColor = this.localIsRealNFT ? '#00F58C' : charDef.colorHex;
+
     this.localPlayerBadgeText = this.add
-      .text(0, -30, `[${charDef.rarity}] ${charDef.name}`, {
+      .text(0, -30, badgeTitle, {
         fontFamily: 'Outfit, sans-serif',
         fontSize: '10px',
-        color: charDef.colorHex,
+        color: badgeColor,
         stroke: '#121026',
         strokeThickness: 2,
       })
@@ -306,34 +308,39 @@ export class IslandScene extends Phaser.Scene {
     this.localPlayer.add(this.localPlayerBadgeText);
 
     this.localPlayer.setDepth(y);
-
-    // Add Collider with obstacles
     this.physics.add.collider(this.localPlayer, this.obstaclesGroup);
   }
 
   private createRemotePlayer(player: PlayerState): RemotePlayerSprite {
     const container = this.add.container(player.x, player.y);
-    const sprite = this.add.sprite(0, 0, player.characterId || 'chog-genesis-purple');
+    const spriteKey = player.characterId || 'chog-genesis-purple';
+    const sprite = this.add.sprite(0, 0, spriteKey);
     container.add(sprite);
 
-    const charDef = getCharacterById(player.characterId || 'chog-genesis-purple');
+    const charDef = getCharacterById(spriteKey);
 
     const nameText = this.add
       .text(0, -44, player.nickname || 'ChogPlayer', {
         fontFamily: 'Outfit, sans-serif',
         fontSize: '13px',
-        color: '#00F58C',
+        color: player.isVerifiedNFT ? '#00F58C' : '#FFFFFF',
         stroke: '#121026',
         strokeThickness: 3,
       })
       .setOrigin(0.5);
     container.add(nameText);
 
+    const badgeTitle = player.isVerifiedNFT
+      ? `⚡ VERIFIED MONAD NFT #${player.nftTokenId || ''}`
+      : `[${charDef.rarity}] ${charDef.name}`;
+
+    const badgeColor = player.isVerifiedNFT ? '#00F58C' : charDef.colorHex;
+
     const badgeText = this.add
-      .text(0, -30, `[${charDef.rarity}] ${charDef.name}`, {
+      .text(0, -30, badgeTitle, {
         fontFamily: 'Outfit, sans-serif',
         fontSize: '10px',
-        color: charDef.colorHex,
+        color: badgeColor,
         stroke: '#121026',
         strokeThickness: 2,
       })
@@ -364,7 +371,6 @@ export class IslandScene extends Phaser.Scene {
     if (!socket) return;
 
     socket.on('roomInit', (data: { selfId: string; room: { players: Record<string, PlayerState> } }) => {
-      // Sync initial room state players
       Object.values(data.room.players).forEach((p) => {
         if (p.id !== data.selfId && !this.remotePlayers.has(p.id)) {
           this.createRemotePlayer(p);
@@ -417,7 +423,6 @@ export class IslandScene extends Phaser.Scene {
     let moveY = 0;
     let dir: 'up' | 'down' | 'left' | 'right' = 'down';
 
-    // 1. Keyboard Movement
     if (this.wasdKeys) {
       if (this.cursors.left.isDown || this.wasdKeys.A.isDown) {
         moveX = -1;
@@ -437,9 +442,8 @@ export class IslandScene extends Phaser.Scene {
     }
 
     if (moveX !== 0 || moveY !== 0) {
-      this.targetClickPos = null; // Keyboard cancels click target
+      this.targetClickPos = null;
     } else if (this.targetClickPos) {
-      // 2. Click-to-move navigation
       const dist = Phaser.Math.Distance.Between(
         this.localPlayer.x,
         this.localPlayer.y,
@@ -461,19 +465,15 @@ export class IslandScene extends Phaser.Scene {
       }
     }
 
-    // Apply movement velocity
     if (moveX !== 0 || moveY !== 0) {
       const vec = new Phaser.Math.Vector2(moveX, moveY).normalize().scale(SPEED);
       body.setVelocity(vec.x, vec.y);
       this.localPlayer.setDepth(this.localPlayer.y);
-
-      // Subtle bobbing animation when walking
       this.localPlayerSprite.y = Math.sin(time / 80) * 3;
     } else {
       this.localPlayerSprite.y = 0;
     }
 
-    // Send position update over socket (throttled)
     if (time - this.lastMoveSendTime > this.moveSendInterval) {
       this.lastMoveSendTime = time;
       socketService.sendMove(
@@ -484,14 +484,12 @@ export class IslandScene extends Phaser.Scene {
       );
     }
 
-    // Interpolate Remote Players
     this.remotePlayers.forEach((remote) => {
       remote.container.x = Phaser.Math.Linear(remote.container.x, remote.targetX, 0.25);
       remote.container.y = Phaser.Math.Linear(remote.container.y, remote.targetY, 0.25);
       remote.container.setDepth(remote.container.y);
     });
 
-    // 3. Check Location Discoveries
     this.checkLandmarkDiscoveries();
   }
 
@@ -506,15 +504,12 @@ export class IslandScene extends Phaser.Scene {
       if (dist <= loc.radius) {
         this.localDiscoveredLocations.add(loc.id);
 
-        // Send discovery event to socket backend
         socketService.sendDiscover(loc.id, loc.name);
 
-        // Trigger local callback for UI notification popup
         if (this.onDiscoveryCallback) {
           this.onDiscoveryCallback(loc.id, loc.name);
         }
 
-        // Particle Burst FX in game scene
         this.triggerSparklesAt(loc.x, loc.y, 0x00F58C);
       }
     });
@@ -533,25 +528,25 @@ export class IslandScene extends Phaser.Scene {
   }
 
   private showEmoteBubbleOnContainer(container: Phaser.GameObjects.Container, text: string) {
-    // Remove existing bubble if present
     const existing = container.getByName('emoteBubble');
     if (existing) existing.destroy();
 
     const bubbleGroup = this.add.container(0, -68);
     bubbleGroup.setName('emoteBubble');
 
-    const bubbleText = this.add.text(0, 0, text, {
-      fontFamily: 'Outfit, sans-serif',
-      fontSize: '14px',
-      color: '#FFFFFF',
-      backgroundColor: 'rgba(18, 16, 38, 0.9)',
-      padding: { x: 8, y: 4 },
-    }).setOrigin(0.5);
+    const bubbleText = this.add
+      .text(0, 0, text, {
+        fontFamily: 'Outfit, sans-serif',
+        fontSize: '14px',
+        color: '#FFFFFF',
+        backgroundColor: 'rgba(18, 16, 38, 0.9)',
+        padding: { x: 8, y: 4 },
+      })
+      .setOrigin(0.5);
 
     bubbleGroup.add(bubbleText);
     container.add(bubbleGroup);
 
-    // Float up and disappear after 3 seconds
     this.tweens.add({
       targets: bubbleGroup,
       y: -84,

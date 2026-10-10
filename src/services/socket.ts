@@ -1,5 +1,5 @@
 import { io, Socket } from 'socket.io-client';
-import { PlayerState, ChatMessage, RoomState } from '../types/game';
+import { PlayerState, ChatMessage } from '../types/game';
 
 class SocketService {
   private socket: Socket | null = null;
@@ -10,7 +10,6 @@ class SocketService {
       return this.socket;
     }
 
-    // Default to current host or fallback to port 3001
     const url = serverUrl || (window.location.hostname === 'localhost' ? 'http://localhost:3001' : '');
     
     this.socket = io(url, {
@@ -42,9 +41,27 @@ class SocketService {
     return this.isConnected;
   }
 
-  public joinRoom(nickname: string, characterId: string, roomId = 'chog-island-1') {
+  public joinRoom(
+    nickname: string,
+    characterId: string,
+    options?: {
+      roomId?: string;
+      isRealNFT?: boolean;
+      nftTokenId?: string;
+      nftImageUrl?: string;
+      walletAddress?: string;
+    }
+  ) {
     if (!this.socket) this.connect();
-    this.socket?.emit('joinRoom', { roomId, nickname, characterId });
+    this.socket?.emit('joinRoom', {
+      roomId: options?.roomId || 'chog-island-1',
+      nickname,
+      characterId,
+      isRealNFT: options?.isRealNFT,
+      nftTokenId: options?.nftTokenId,
+      nftImageUrl: options?.nftImageUrl,
+      walletAddress: options?.walletAddress,
+    });
   }
 
   public sendMove(x: number, y: number, direction: 'up' | 'down' | 'left' | 'right', isMoving: boolean) {

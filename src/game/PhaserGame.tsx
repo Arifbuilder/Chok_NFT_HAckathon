@@ -11,11 +11,15 @@ export interface PhaserGameHandle {
 interface PhaserGameProps {
   nickname: string;
   characterId: string;
+  isRealNFT?: boolean;
+  nftImageUrl?: string;
+  nftTokenId?: string;
+  walletAddress?: string;
   onDiscovery?: (locationId: string, locationName: string) => void;
 }
 
 export const PhaserGame = forwardRef<PhaserGameHandle, PhaserGameProps>(
-  ({ nickname, characterId, onDiscovery }, ref) => {
+  ({ nickname, characterId, isRealNFT, nftImageUrl, nftTokenId, walletAddress, onDiscovery }, ref) => {
     const gameContainerRef = useRef<HTMLDivElement>(null);
     const gameRef = useRef<Phaser.Game | null>(null);
     const sceneRef = useRef<IslandScene | null>(null);
@@ -62,6 +66,10 @@ export const PhaserGame = forwardRef<PhaserGameHandle, PhaserGameProps>(
         scene.scene.restart({
           nickname,
           characterId,
+          isRealNFT,
+          nftImageUrl,
+          nftTokenId,
+          walletAddress,
           onDiscovery,
         });
       });

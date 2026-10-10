@@ -3,26 +3,24 @@ import { CHOG_CHARACTERS } from '../../data/characters';
 
 /**
  * Generates custom canvas textures for Chog characters, tiles, and map elements.
- * Guarantees zero external image dependencies and pixel-perfect custom visuals.
+ * Features the authentic Chog Genesis spiky-haired creature design!
  */
 export function generateGameTextures(scene: Phaser.Scene) {
-  // 1. Generate Tile Textures
   generateGrassTile(scene);
   generatePathTile(scene);
   generateWaterTile(scene);
   generateSandTile(scene);
   generatePlazaTile(scene);
 
-  // 2. Generate Environmental Objects
   generateTreeTexture(scene);
   generateRockTexture(scene);
   generateShrineTexture(scene);
   generatePondDetailTexture(scene);
   generateParticleTexture(scene);
 
-  // 3. Generate Chog Character Textures for all characters
+  // Generate authentic spiky Chog character textures
   CHOG_CHARACTERS.forEach((char) => {
-    generateChogSprite(scene, char.id, char.colorHex, char.secondaryColorHex, char.auraColorHex, char.id);
+    generateAuthenticChogSprite(scene, char.id, char.colorHex, char.secondaryColorHex, char.auraColorHex, char.id);
   });
 }
 
@@ -32,14 +30,12 @@ function generateGrassTile(scene: Phaser.Scene) {
   if (!canvas) return;
   const ctx = canvas.context;
 
-  // Base grass gradient
   const grad = ctx.createLinearGradient(0, 0, 64, 64);
   grad.addColorStop(0, '#2e7d32');
   grad.addColorStop(1, '#1b5e20');
   ctx.fillStyle = grad;
   ctx.fillRect(0, 0, 64, 64);
 
-  // Grass blades details
   ctx.fillStyle = '#4caf50';
   for (let i = 0; i < 14; i++) {
     const rx = (i * 17 + 5) % 58;
@@ -59,7 +55,6 @@ function generatePathTile(scene: Phaser.Scene) {
   ctx.fillStyle = '#8d6e63';
   ctx.fillRect(0, 0, 64, 64);
 
-  // Cobblestone pattern
   ctx.strokeStyle = '#5d4037';
   ctx.lineWidth = 2;
   ctx.beginPath();
@@ -115,7 +110,6 @@ function generatePlazaTile(scene: Phaser.Scene) {
   ctx.fillStyle = '#261b4d';
   ctx.fillRect(0, 0, 64, 64);
 
-  // Monad neon accent lines
   ctx.strokeStyle = 'rgba(131, 110, 249, 0.4)';
   ctx.lineWidth = 2;
   ctx.strokeRect(4, 4, 56, 56);
@@ -131,11 +125,9 @@ function generateTreeTexture(scene: Phaser.Scene) {
   if (!canvas) return;
   const ctx = canvas.context;
 
-  // Trunk
   ctx.fillStyle = '#4e342e';
   ctx.fillRect(32, 56, 16, 40);
 
-  // Foliage layers
   ctx.fillStyle = '#2e7d32';
   ctx.beginPath();
   ctx.arc(40, 44, 32, 0, Math.PI * 2);
@@ -179,18 +171,15 @@ function generateShrineTexture(scene: Phaser.Scene) {
   if (!canvas) return;
   const ctx = canvas.context;
 
-  // Altar Base
   ctx.fillStyle = '#37474f';
   ctx.fillRect(10, 80, 100, 30);
   ctx.fillStyle = '#546e7a';
   ctx.fillRect(20, 65, 80, 20);
 
-  // Pillars
   ctx.fillStyle = '#78909c';
   ctx.fillRect(25, 20, 14, 50);
   ctx.fillRect(81, 20, 14, 50);
 
-  // Glowing Monad Crystal Core
   const grad = ctx.createRadialGradient(60, 45, 5, 60, 45, 30);
   grad.addColorStop(0, '#00F58C');
   grad.addColorStop(0.5, '#836EF9');
@@ -200,7 +189,6 @@ function generateShrineTexture(scene: Phaser.Scene) {
   ctx.arc(60, 45, 30, 0, Math.PI * 2);
   ctx.fill();
 
-  // Floating Diamond Core
   ctx.fillStyle = '#FFFFFF';
   ctx.beginPath();
   ctx.moveTo(60, 30);
@@ -219,14 +207,12 @@ function generatePondDetailTexture(scene: Phaser.Scene) {
   if (!canvas) return;
   const ctx = canvas.context;
 
-  // Lily pad
   ctx.fillStyle = '#2e7d32';
   ctx.beginPath();
   ctx.arc(20, 20, 16, 0.2, Math.PI * 1.9);
   ctx.lineTo(20, 20);
   ctx.fill();
 
-  // Lotus Flower
   ctx.fillStyle = '#f48fb1';
   ctx.beginPath();
   ctx.arc(20, 20, 6, 0, Math.PI * 2);
@@ -250,10 +236,10 @@ function generateParticleTexture(scene: Phaser.Scene) {
 }
 
 /**
- * Procedurally draws a cute 2D Chog character sprite sheet.
- * Body shape: Rounded, adorable frog-like creature with distinctive traits!
+ * Procedurally draws the authentic Chog Genesis spiky-haired creature sprite sheet!
+ * Features the signature 5 spiky hair tufts, cream face oval, big eyes & rosy cheeks!
  */
-function generateChogSprite(
+function generateAuthenticChogSprite(
   scene: Phaser.Scene,
   textureKey: string,
   primaryHex: string,
@@ -268,112 +254,114 @@ function generateChogSprite(
   const ctx = canvas.context;
 
   // 1. Glowing Aura Ring
-  const auraGrad = ctx.createRadialGradient(32, 34, 10, 32, 34, 30);
+  const auraGrad = ctx.createRadialGradient(32, 32, 10, 32, 32, 30);
   auraGrad.addColorStop(0, auraHex);
   auraGrad.addColorStop(1, 'transparent');
   ctx.fillStyle = auraGrad;
   ctx.beginPath();
-  ctx.arc(32, 34, 28, 0, Math.PI * 2);
+  ctx.arc(32, 32, 28, 0, Math.PI * 2);
   ctx.fill();
 
-  // 2. Chog Main Blob Body (rounded cute creature)
+  // 2. Chog Spiky Hair Tufts (5 signature spikes surrounding head)
   ctx.fillStyle = primaryHex;
+
+  // Center Top Spike
   ctx.beginPath();
-  ctx.ellipse(32, 36, 22, 18, 0, 0, Math.PI * 2);
+  ctx.moveTo(32, 4);
+  ctx.lineTo(24, 20);
+  ctx.lineTo(40, 20);
+  ctx.closePath();
   ctx.fill();
 
-  // 3. Belly highlight
-  ctx.fillStyle = secondaryHex;
+  // Top Left Spike
   ctx.beginPath();
-  ctx.ellipse(32, 40, 14, 10, 0, 0, Math.PI * 2);
+  ctx.moveTo(14, 10);
+  ctx.lineTo(8, 26);
+  ctx.lineTo(24, 24);
+  ctx.closePath();
   ctx.fill();
 
-  // 4. Big Chog Eyes (Frog/Blob style on top of head)
-  // Left Eye bump & pupil
-  ctx.fillStyle = primaryHex;
+  // Top Right Spike
   ctx.beginPath();
-  ctx.arc(20, 20, 8, 0, Math.PI * 2);
-  ctx.arc(44, 20, 8, 0, Math.PI * 2);
+  ctx.moveTo(50, 10);
+  ctx.lineTo(40, 24);
+  ctx.lineTo(56, 26);
+  ctx.closePath();
   ctx.fill();
 
-  // Eye Sclera (White)
-  ctx.fillStyle = '#FFFFFF';
+  // Mid Left Spike
   ctx.beginPath();
-  ctx.arc(20, 20, 6, 0, Math.PI * 2);
-  ctx.arc(44, 20, 6, 0, Math.PI * 2);
+  ctx.moveTo(4, 28);
+  ctx.lineTo(12, 42);
+  ctx.lineTo(20, 32);
+  ctx.closePath();
   ctx.fill();
 
-  // Pupil / Expression
+  // Mid Right Spike
+  ctx.beginPath();
+  ctx.moveTo(60, 28);
+  ctx.lineTo(44, 32);
+  ctx.lineTo(52, 42);
+  ctx.closePath();
+  ctx.fill();
+
+  // 3. Chog Round Head & Body
+  ctx.beginPath();
+  ctx.arc(32, 30, 20, 0, Math.PI * 2);
+  ctx.fill();
+
+  ctx.beginPath();
+  ctx.ellipse(32, 50, 14, 10, 0, 0, Math.PI * 2);
+  ctx.fill();
+
+  // 4. Cream Face Oval Mask (Signature Chog Face)
+  ctx.fillStyle = '#FFFDF0';
+  ctx.beginPath();
+  ctx.ellipse(32, 34, 15, 12, 0, 0, Math.PI * 2);
+  ctx.fill();
+
+  // 5. Rosy Cheeks (Signature Pink Spots)
+  ctx.fillStyle = '#FF4081';
+  ctx.beginPath();
+  ctx.arc(20, 38, 3.5, 0, Math.PI * 2);
+  ctx.arc(44, 38, 3.5, 0, Math.PI * 2);
+  ctx.fill();
+
+  // 6. Big Expressive Eyes
   if (charId === 'chog-cyber-neon') {
-    // Cyber HUD Visor across eyes
+    // Cyber HUD Visor
     ctx.fillStyle = '#00E5FF';
-    ctx.fillRect(10, 16, 44, 8);
+    ctx.fillRect(16, 26, 32, 8);
     ctx.fillStyle = '#FF007F';
-    ctx.fillRect(14, 18, 12, 4);
-    ctx.fillRect(38, 18, 12, 4);
+    ctx.fillRect(20, 28, 8, 4);
+    ctx.fillRect(36, 28, 8, 4);
   } else {
-    // Cute pupils with sparkles
+    // Large Sclera & Pupils
     ctx.fillStyle = '#121026';
     ctx.beginPath();
-    ctx.arc(21, 20, 3.5, 0, Math.PI * 2);
-    ctx.arc(43, 20, 3.5, 0, Math.PI * 2);
+    ctx.ellipse(24, 29, 4.5, 6, 0, 0, Math.PI * 2);
+    ctx.ellipse(40, 29, 4.5, 6, 0, 0, Math.PI * 2);
     ctx.fill();
 
-    // Eye catchlights (shine)
+    // Eye Catchlight Shine
     ctx.fillStyle = '#FFFFFF';
     ctx.beginPath();
-    ctx.arc(22, 18, 1.5, 0, Math.PI * 2);
-    ctx.arc(44, 18, 1.5, 0, Math.PI * 2);
+    ctx.arc(25.5, 27, 2, 0, Math.PI * 2);
+    ctx.arc(41.5, 27, 2, 0, Math.PI * 2);
     ctx.fill();
   }
 
-  // 5. Cute Smile
-  ctx.strokeStyle = '#121026';
-  ctx.lineWidth = 2;
+  // 7. Cute Nose & Smile
+  ctx.fillStyle = '#E91E63';
   ctx.beginPath();
-  ctx.arc(32, 34, 6, 0.2, Math.PI - 0.2);
-  ctx.stroke();
-
-  // 6. Character-Specific Headwear / Accessory
-  if (charId === 'chog-genesis-purple') {
-    // Monad Golden Crown
-    ctx.fillStyle = '#FFD700';
-    ctx.beginPath();
-    ctx.moveTo(22, 12);
-    ctx.lineTo(26, 4);
-    ctx.lineTo(32, 10);
-    ctx.lineTo(38, 4);
-    ctx.lineTo(42, 12);
-    ctx.closePath();
-    ctx.fill();
-    // Crown Gem
-    ctx.fillStyle = '#00F58C';
-    ctx.beginPath();
-    ctx.arc(32, 8, 2, 0, Math.PI * 2);
-    ctx.fill();
-  } else if (charId === 'chog-aurum-gold') {
-    // Radiant Golden Halo
-    ctx.strokeStyle = '#FFE57F';
-    ctx.lineWidth = 3;
-    ctx.beginPath();
-    ctx.ellipse(32, 8, 16, 4, 0, 0, Math.PI * 2);
-    ctx.stroke();
-  } else if (charId === 'chog-emerald-frog') {
-    // Sprout Lotus Flower
-    ctx.fillStyle = '#F48FB1';
-    ctx.beginPath();
-    ctx.arc(32, 10, 5, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.fillStyle = '#81C784';
-    ctx.fillRect(31, 14, 2, 4);
-  }
-
-  // 7. Little Cute Feet
-  ctx.fillStyle = primaryHex;
-  ctx.beginPath();
-  ctx.ellipse(20, 52, 6, 4, 0, 0, Math.PI * 2);
-  ctx.ellipse(44, 52, 6, 4, 0, 0, Math.PI * 2);
+  ctx.arc(32, 35, 1.5, 0, Math.PI * 2);
   ctx.fill();
+
+  ctx.strokeStyle = '#121026';
+  ctx.lineWidth = 1.5;
+  ctx.beginPath();
+  ctx.arc(32, 37, 4, 0.1, Math.PI - 0.1);
+  ctx.stroke();
 
   canvas.refresh();
 }
