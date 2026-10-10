@@ -1,5 +1,7 @@
 import { io, Socket } from 'socket.io-client';
 
+const LIVE_RENDER_SERVER_URL = 'https://chok-nft-hackathon.onrender.com';
+
 class SocketService {
   private socket: Socket | null = null;
   private isConnected = false;
@@ -7,19 +9,19 @@ class SocketService {
   private getSocketUrl(serverUrl?: string): string {
     if (serverUrl) return serverUrl;
     
-    // Check environment variable (e.g. VITE_SERVER_URL when deployed to Netlify/Vercel)
+    // Check environment variable (e.g. VITE_SERVER_URL when set)
     const envUrl = (import.meta as any).env?.VITE_SERVER_URL;
     if (envUrl) return envUrl;
 
     if (typeof window !== 'undefined') {
-      // If running Vite dev server locally on port 5173, connect to backend server on port 3001
-      if (window.location.port === '5173') {
+      // If running Vite dev server locally on port 5173
+      if (window.location.port === '5173' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')) {
         return `http://${window.location.hostname}:3001`;
       }
-      // Deployed hosted server fallback
-      return window.location.origin;
+      // Production or deployed host (Netlify, Vercel, external domain) -> use live Render server!
+      return LIVE_RENDER_SERVER_URL;
     }
-    return 'http://localhost:3001';
+    return LIVE_RENDER_SERVER_URL;
   }
 
   public connect(serverUrl?: string): Socket {
@@ -31,27 +33,28 @@ class SocketService {
     }
 
     const url = this.getSocketUrl(serverUrl);
+    console.log('🔌 Connecting to Chog World Socket Server at:', url);
     
     this.socket = io(url, {
       transports: ['websocket', 'polling'],
       autoConnect: true,
       reconnection: true,
-      reconnectionAttempts: 20,
+      reconnectionAttempts: 25,
       reconnectionDelay: 1000,
     });
 
     this.socket.on('connect', () => {
       this.isConnected = true;
-      console.log('⚡ Connected to Chog World Socket Server:', this.socket?.id);
+      console.log('✅ Connected to Chog World Socket Server:', this.socket?.id);
     });
 
     this.socket.on('disconnect', (reason) => {
       this.isConnected = false;
-      console.log('❌ Disconnected from Chog World Socket Server:', reason);
+      console.log('⚠️ Disconnected from Chog World Socket Server:', reason);
     });
 
     this.socket.on('connect_error', (err) => {
-      console.warn('⚠️ Socket Connection Error:', err.message);
+      console.warn('❌ Socket Connection Error:', err.message);
     });
 
     return this.socket;

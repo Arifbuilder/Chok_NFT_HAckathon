@@ -3,26 +3,12 @@ import { createServer } from 'http';
 import { Server, Socket } from 'socket.io';
 import cors from 'cors';
 import { roomManager } from './roomManager.js';
-import { io } from "socket.io-client";
-
-export const socket = io(
-  "https://chok-nft-hackathon.onrender.com",
-  {
-    autoConnect: true,
-    transports: ["websocket", "polling"],
-  }
-);
-
-socket.on("connect", () => {
-  console.log("✅ Socket connected:", socket.id);
-});
-
-socket.on("connect_error", (error) => {
-  console.error("❌ Socket connection error:", error.message);
-});
 
 const app = express();
-app.use(cors());
+app.use(cors({
+  origin: '*',
+  methods: ['GET', 'POST'],
+}));
 app.use(express.json());
 
 const httpServer = createServer(app);
@@ -38,7 +24,7 @@ const PORT = process.env.PORT || 3001;
 app.get('/api/health', (req, res) => {
   res.json({
     status: 'ok',
-    service: 'Chog World Server',
+    service: 'Chog World Backend Server',
     contractAddress: process.env.MONAD_NFT_CONTRACT || '0xc96d31f8626c6d03fae5dcd3d61e3fb9f4a73763',
     timestamp: Date.now(),
   });
@@ -100,7 +86,7 @@ io.on('connection', (socket: Socket) => {
       console.log(
         `🎮 Player joined: ${newPlayer.nickname} (${newPlayer.characterId}) [Real NFT: ${
           newPlayer.isVerifiedNFT ? 'YES #' + newPlayer.nftTokenId : 'NO'
-        }] Socket: ${socket.id}`
+        }] Socket ID: ${socket.id}`
       );
     }
   );
@@ -178,5 +164,5 @@ io.on('connection', (socket: Socket) => {
 });
 
 httpServer.listen(PORT, () => {
-  console.log(`🚀 Chog World Backend Server running on http://localhost:${PORT}`);
+  console.log(`🚀 Chog World Backend Server running on port ${PORT}`);
 });
