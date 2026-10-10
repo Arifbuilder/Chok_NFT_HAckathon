@@ -3,6 +3,27 @@ import { createServer } from 'http';
 import { Server, Socket } from 'socket.io';
 import cors from 'cors';
 import { roomManager } from './roomManager.js';
+import { io } from "socket.io-client";
+
+const serverUrl = "https://chok-nft-hackathon.onrender.com";
+
+export const socket = io(serverUrl, {
+  autoConnect: true,
+  transports: ["websocket", "polling"],
+});
+
+socket.on("connect", () => {
+  console.log("✅ Connected to Chog World:", socket.id);
+});
+
+socket.on("connect_error", (error) => {
+  console.error("❌ Chog World connection error:", error.message);
+});
+
+socket.on("disconnect", (reason) => {
+  console.warn("⚠️ Chog World disconnected:", reason);
+});
+
 
 const app = express();
 app.use(cors());
