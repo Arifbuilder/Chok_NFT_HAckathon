@@ -13,17 +13,16 @@ export const socket = io(serverUrl, {
 });
 
 socket.on("connect", () => {
-  console.log("✅ Connected to Chog World:", socket.id);
+  console.log("✅ Connected:", socket.id);
 });
 
 socket.on("connect_error", (error) => {
-  console.error("❌ Chog World connection error:", error.message);
+  console.error("❌ Connection error:", error.message);
 });
 
 socket.on("disconnect", (reason) => {
-  console.warn("⚠️ Chog World disconnected:", reason);
+  console.warn("⚠️ Disconnected:", reason);
 });
-
 
 const app = express();
 app.use(cors());
