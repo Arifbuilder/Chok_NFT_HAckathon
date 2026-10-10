@@ -3,30 +3,22 @@ import { createServer } from 'http';
 import { Server, Socket } from 'socket.io';
 import cors from 'cors';
 import { roomManager } from './roomManager.js';
-const io = new Server(httpServer, {
-  cors: {
-    origin: process.env.FRONTEND_URL,
-    methods: ["GET", "POST"],
-  },
-});
+import { io } from "socket.io-client";
 
-const serverUrl = "https://chok-nft-hackathon.onrender.com";
-
-export const socket = io(serverUrl, {
-  autoConnect: true,
-  transports: ["websocket", "polling"],
-});
+export const socket = io(
+  "https://chok-nft-hackathon.onrender.com",
+  {
+    autoConnect: true,
+    transports: ["websocket", "polling"],
+  }
+);
 
 socket.on("connect", () => {
-  console.log("✅ Connected:", socket.id);
+  console.log("✅ Socket connected:", socket.id);
 });
 
 socket.on("connect_error", (error) => {
-  console.error("❌ Connection error:", error.message);
-});
-
-socket.on("disconnect", (reason) => {
-  console.warn("⚠️ Disconnected:", reason);
+  console.error("❌ Socket connection error:", error.message);
 });
 
 const app = express();
