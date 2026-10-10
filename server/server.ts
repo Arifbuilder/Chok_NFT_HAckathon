@@ -3,7 +3,12 @@ import { createServer } from 'http';
 import { Server, Socket } from 'socket.io';
 import cors from 'cors';
 import { roomManager } from './roomManager.js';
-import { io } from "socket.io-client";
+const io = new Server(httpServer, {
+  cors: {
+    origin: process.env.FRONTEND_URL,
+    methods: ["GET", "POST"],
+  },
+});
 
 const serverUrl = "https://chok-nft-hackathon.onrender.com";
 
