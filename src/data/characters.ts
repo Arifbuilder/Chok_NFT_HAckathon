@@ -1,0 +1,118 @@
+import { ChogCharacter } from '../types/game';
+
+export const CHOG_CHARACTERS: ChogCharacter[] = [
+  {
+    id: 'chog-genesis-purple',
+    name: 'Genesis Monad Chog',
+    tagline: 'Fueled by 10,000 TPS of raw Monad electricity',
+    rarity: 'Genesis',
+    rarityScore: 99.8,
+    simulatedTokenId: '#0001',
+    colorHex: '#836EF9',
+    secondaryColorHex: '#00F58C',
+    auraColorHex: '#A086FF',
+    particleColor: 0x836EF9,
+    traits: {
+      skin: 'Monad Violet Amethyst',
+      headwear: 'Crown of Speed',
+      eyes: 'Laser Cyber Gaze',
+      aura: 'High-Throughput Plasma',
+      expression: 'Ultra Hyped',
+      clothing: 'Monad Protocol Robe',
+    },
+    emoteEffect: {
+      name: 'voltage',
+      icon: '⚡',
+      label: 'Monad Voltage',
+      particleColor: 0x836EF9,
+    },
+    bio: 'The origin Chog. Awakened deep inside the Monad EVM execution engine, radiating pure parallel speed.',
+  },
+  {
+    id: 'chog-aurum-gold',
+    name: 'Aurum Sovereign Chog',
+    tagline: 'Forged in pure 24K golden consensus',
+    rarity: 'Legendary',
+    rarityScore: 97.4,
+    simulatedTokenId: '#0888',
+    colorHex: '#FFD700',
+    secondaryColorHex: '#FF8C00',
+    auraColorHex: '#FFE57F',
+    particleColor: 0xFFD700,
+    traits: {
+      skin: '24K Polished Aurum',
+      headwear: 'Solar Halo',
+      eyes: 'Star Gem Gaze',
+      aura: 'Golden Starlight',
+      expression: 'Noble Serenity',
+      clothing: 'Empirical Gold Armor',
+    },
+    emoteEffect: {
+      name: 'gold_shower',
+      icon: '🌟',
+      label: 'Golden Starlight',
+      particleColor: 0xFFD700,
+    },
+    bio: 'Resplendent and revered across the island. Whispers say every step it takes leaves behind traces of liquid gold.',
+  },
+  {
+    id: 'chog-cyber-neon',
+    name: 'Cyberpunk Neon Chog',
+    tagline: 'Hacking parallel blocks with neon flare',
+    rarity: 'Epic',
+    rarityScore: 91.2,
+    simulatedTokenId: '#0404',
+    colorHex: '#FF007F',
+    secondaryColorHex: '#00E5FF',
+    auraColorHex: '#FF80AB',
+    particleColor: 0xFF007F,
+    traits: {
+      skin: 'Synthwave Magenta',
+      headwear: 'Cyber Visor v2.0',
+      eyes: 'Pixel HUD Display',
+      aura: 'Holographic Matrix Grid',
+      expression: 'Confident Smirk',
+      clothing: 'Neon Hacker Vest',
+    },
+    emoteEffect: {
+      name: 'matrix_pulse',
+      icon: '🌐',
+      label: 'Cyber Matrix',
+      particleColor: 0x00E5FF,
+    },
+    bio: 'Master of sub-second transaction routing. Equipped with custom cybernetic implants and holographic visors.',
+  },
+  {
+    id: 'chog-emerald-frog',
+    name: 'Verdant Froggo Chog',
+    tagline: 'Guardian of the Pond of Tranquility',
+    rarity: 'Rare',
+    rarityScore: 84.5,
+    simulatedTokenId: '#0777',
+    colorHex: '#00E676',
+    secondaryColorHex: '#FFEE58',
+    auraColorHex: '#B9F6CA',
+    particleColor: 0x00E676,
+    traits: {
+      skin: 'Emerald Leaf Gloss',
+      headwear: 'Blooming Lotus Flower',
+      eyes: 'Big Playful Eyes',
+      aura: 'Nature Bloom Petals',
+      expression: 'Wide Froggo Smile',
+      clothing: 'Lily Pad Mantle',
+    },
+    emoteEffect: {
+      name: 'nature_bloom',
+      icon: '🌸',
+      label: 'Nature Bloom',
+      particleColor: 0x00E676,
+    },
+    bio: 'Loves lounging by the island pond. Known for spreading good vibes and blooming lotus petals wherever it hops.',
+  },
+];
+
+export function getCharacterById(id: string): ChogCharacter {
+  return (
+    CHOG_CHARACTERS.find((c) => c.id === id) || CHOG_CHARACTERS[0]
+  );
+}

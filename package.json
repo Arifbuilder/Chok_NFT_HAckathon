@@ -1,0 +1,40 @@
+{
+  "name": "chog-world",
+  "version": "1.0.0",
+  "description": "Chog World - 2D Real-time Multiplayer Island Game inspired by Chog Genesis on Monad",
+  "main": "server/server.ts",
+  "type": "module",
+  "scripts": {
+    "dev": "concurrently -k -n \"SERVER,VITE\" -c \"magenta,cyan\" \"npm run server\" \"npm run vite\"",
+    "server": "tsx watch server/server.ts",
+    "vite": "vite",
+    "build": "tsc && vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "cors": "^2.8.5",
+    "express": "^4.19.2",
+    "lucide-react": "^0.378.0",
+    "phaser": "^3.80.1",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "socket.io": "^4.7.5",
+    "socket.io-client": "^4.7.5"
+  },
+  "devDependencies": {
+    "@tailwindcss/vite": "^4.3.3",
+    "@types/cors": "^2.8.17",
+    "@types/express": "^4.17.21",
+    "@types/node": "^20.12.12",
+    "@types/react": "^18.3.3",
+    "@types/react-dom": "^18.3.0",
+    "@vitejs/plugin-react": "^4.2.1",
+    "autoprefixer": "^10.6.1",
+    "concurrently": "^8.2.2",
+    "postcss": "^8.5.29",
+    "tailwindcss": "^4.3.3",
+    "tsx": "^4.10.5",
+    "typescript": "^5.4.5",
+    "vite": "^5.2.11"
+  }
+}
