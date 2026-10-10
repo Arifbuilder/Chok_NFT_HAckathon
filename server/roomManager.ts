@@ -1,5 +1,5 @@
 import { ethers } from 'ethers';
-import { ServerRoom, ServerPlayer, ServerChatMessage } from './types';
+import { ServerRoom, ServerPlayer, ServerChatMessage } from './types.js';
 
 const CHOG_CONTRACT_ADDRESS = process.env.MONAD_NFT_CONTRACT || '0xc96d31f8626c6d03fae5dcd3d61e3fb9f4a73763';
 const MONAD_RPC_URL = process.env.MONAD_RPC_URL || 'https://testnet-rpc.monad.xyz';
@@ -52,7 +52,6 @@ export class RoomManager {
 
     let isVerifiedNFT = false;
 
-    // Server-side verification for Real NFT Mode
     if (player.isRealNFT && player.nftTokenId && player.walletAddress) {
       isVerifiedNFT = await this.verifyOwnerOnChain(player.nftTokenId, player.walletAddress);
     }
@@ -105,7 +104,6 @@ export class RoomManager {
       return owner.toLowerCase() === walletAddress.toLowerCase();
     } catch (err) {
       console.warn(`Server-side RPC verification skipped or failed for token #${tokenId}:`, err);
-      // Fallback: accept valid wallet format if RPC is unreachable during local test
       return walletAddress.startsWith('0x') && walletAddress.length === 42;
     }
   }

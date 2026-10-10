@@ -2,7 +2,7 @@ import express from 'express';
 import { createServer } from 'http';
 import { Server, Socket } from 'socket.io';
 import cors from 'cors';
-import { roomManager } from './roomManager';
+import { roomManager } from './roomManager.js';
 
 const app = express();
 app.use(cors());
@@ -68,16 +68,13 @@ io.on('connection', (socket: Socket) => {
         walletAddress: data.walletAddress,
       });
 
-      // Send room init to joined player
       socket.emit('roomInit', {
         selfId: socket.id,
         room,
       });
 
-      // Notify other players in the room
       socket.to(currentRoomId).emit('playerJoined', newPlayer);
 
-      // Broadcast join notice
       const latestMsg = room.chatHistory[room.chatHistory.length - 1];
       if (latestMsg) {
         io.to(currentRoomId).emit('chatBroadcast', latestMsg);

@@ -1,22 +1,42 @@
 import { io, Socket } from 'socket.io-client';
-import { PlayerState, ChatMessage } from '../types/game';
 
 class SocketService {
   private socket: Socket | null = null;
   private isConnected = false;
 
+  private getSocketUrl(serverUrl?: string): string {
+    if (serverUrl) return serverUrl;
+    
+    // Check environment variable (e.g. VITE_SERVER_URL when deployed to Netlify/Vercel)
+    const envUrl = (import.meta as any).env?.VITE_SERVER_URL;
+    if (envUrl) return envUrl;
+
+    if (typeof window !== 'undefined') {
+      // If running Vite dev server locally on port 5173, connect to backend server on port 3001
+      if (window.location.port === '5173') {
+        return `http://${window.location.hostname}:3001`;
+      }
+      // Deployed hosted server fallback
+      return window.location.origin;
+    }
+    return 'http://localhost:3001';
+  }
+
   public connect(serverUrl?: string): Socket {
     if (this.socket) {
+      if (!this.socket.connected) {
+        this.socket.connect();
+      }
       return this.socket;
     }
 
-    const url = serverUrl || (window.location.hostname === 'localhost' ? 'http://localhost:3001' : '');
+    const url = this.getSocketUrl(serverUrl);
     
     this.socket = io(url, {
       transports: ['websocket', 'polling'],
       autoConnect: true,
       reconnection: true,
-      reconnectionAttempts: 10,
+      reconnectionAttempts: 20,
       reconnectionDelay: 1000,
     });
 
@@ -25,9 +45,13 @@ class SocketService {
       console.log('⚡ Connected to Chog World Socket Server:', this.socket?.id);
     });
 
-    this.socket.on('disconnect', () => {
+    this.socket.on('disconnect', (reason) => {
       this.isConnected = false;
-      console.log('❌ Disconnected from Chog World Socket Server');
+      console.log('❌ Disconnected from Chog World Socket Server:', reason);
+    });
+
+    this.socket.on('connect_error', (err) => {
+      console.warn('⚠️ Socket Connection Error:', err.message);
     });
 
     return this.socket;
@@ -38,7 +62,7 @@ class SocketService {
   }
 
   public getIsConnected(): boolean {
-    return this.isConnected;
+    return this.socket ? this.socket.connected : false;
   }
 
   public joinRoom(

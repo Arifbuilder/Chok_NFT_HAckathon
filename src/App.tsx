@@ -40,6 +40,12 @@ export default function App() {
 
     const socket = socketService.connect();
 
+    // If socket is already connected
+    if (socket.connected) {
+      setIsConnected(true);
+      if (socket.id) setCurrentSocketId(socket.id);
+    }
+
     socket.on('connect', () => {
       setIsConnected(true);
       if (socket.id) setCurrentSocketId(socket.id);
@@ -50,6 +56,7 @@ export default function App() {
     });
 
     socket.on('roomInit', (data: { selfId: string; room: { players: Record<string, PlayerState>; chatHistory: ChatMessage[] } }) => {
+      setIsConnected(true);
       setCurrentSocketId(data.selfId);
       setPlayers(data.room.players);
       setChatHistory(data.room.chatHistory || []);
@@ -103,6 +110,7 @@ export default function App() {
     setPlayers({});
     setChatHistory([]);
     setDiscoveredLocations([]);
+    setIsConnected(false);
   };
 
   if (!gameStarted) {
