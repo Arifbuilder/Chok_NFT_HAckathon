@@ -135,6 +135,41 @@ io.on('connection', (socket: Socket) => {
     io.to(currentRoomId).emit('chatBroadcast', chatMsg);
   });
 
+  socket.on('attack', (data: { targetId: string; damage: number }) => {
+    const result = roomManager.processAttack(currentRoomId, socket.id, data.targetId, data.damage);
+    if (!result) return;
+
+    io.to(currentRoomId).emit('playerHit', {
+      attackerId: socket.id,
+      targetId: data.targetId,
+      damage: result.target.maxHealth - result.target.health <= 0 ? data.damage : data.damage,
+      targetHealth: result.target.health,
+      targetMaxHealth: result.target.maxHealth,
+    });
+
+    if (result.died) {
+      io.to(currentRoomId).emit('playerDied', {
+        targetId: data.targetId,
+        killerId: socket.id,
+      });
+
+      // Respawn broadcast after 5 seconds
+      setTimeout(() => {
+        const room = roomManager.getOrCreateRoom(currentRoomId);
+        const respawnedPlayer = room.players[data.targetId];
+        if (respawnedPlayer) {
+          io.to(currentRoomId).emit('playerRespawned', {
+            id: data.targetId,
+            x: respawnedPlayer.x,
+            y: respawnedPlayer.y,
+            health: respawnedPlayer.health,
+            maxHealth: respawnedPlayer.maxHealth,
+          });
+        }
+      }, 5000);
+    }
+  });
+
   socket.on('discover', (data: { locationId: string; locationName: string }) => {
     const result = roomManager.recordLocationDiscovery(currentRoomId, socket.id, data.locationId, data.locationName);
     if (result) {

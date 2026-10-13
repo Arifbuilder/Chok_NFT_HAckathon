@@ -72,6 +72,10 @@ export class RoomManager {
       nftTokenId: player.nftTokenId,
       nftImageUrl: player.nftImageUrl,
       walletAddress: player.walletAddress,
+      health: 100,
+      maxHealth: 100,
+      isDead: false,
+      lastAttackTime: 0,
     };
 
     room.players[player.id] = newPlayer;
@@ -117,12 +121,59 @@ export class RoomManager {
     if (!room || !room.players[socketId]) return null;
 
     const player = room.players[socketId];
+    // Dead players can't move
+    if (player.isDead) return player;
     player.x = moveData.x;
     player.y = moveData.y;
     if (moveData.direction) player.direction = moveData.direction;
     if (moveData.isMoving !== undefined) player.isMoving = moveData.isMoving;
 
     return player;
+  }
+
+  processAttack(
+    roomId: string,
+    attackerId: string,
+    targetId: string,
+    damage: number
+  ): { attacker: ServerPlayer; target: ServerPlayer; died: boolean } | null {
+    const room = this.rooms.get(roomId);
+    if (!room) return null;
+
+    const attacker = room.players[attackerId];
+    const target = room.players[targetId];
+    if (!attacker || !target) return null;
+    if (attacker.isDead || target.isDead) return null;
+
+    // Rate-limit: one attack per 600ms
+    const now = Date.now();
+    if (now - attacker.lastAttackTime < 600) return null;
+    attacker.lastAttackTime = now;
+
+    // Clamp damage 10-30
+    const clampedDamage = Math.max(10, Math.min(30, damage));
+    target.health = Math.max(0, target.health - clampedDamage);
+
+    let died = false;
+    if (target.health <= 0) {
+      target.isDead = true;
+      target.health = 0;
+      died = true;
+
+      // Schedule respawn after 5 seconds
+      setTimeout(() => {
+        const r = this.rooms.get(roomId);
+        if (r && r.players[targetId]) {
+          r.players[targetId].isDead = false;
+          r.players[targetId].health = r.players[targetId].maxHealth;
+          // Respawn at center
+          r.players[targetId].x = 550 + Math.round(Math.random() * 80);
+          r.players[targetId].y = 480 + Math.round(Math.random() * 80);
+        }
+      }, 5000);
+    }
+
+    return { attacker, target, died };
   }
 
   updatePlayerEmote(

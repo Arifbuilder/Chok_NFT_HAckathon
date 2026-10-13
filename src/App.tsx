@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { CHOG_CHARACTERS } from './data/characters';
 import { ChogCharacter, PlayerState, ChatMessage } from './types/game';
 import { socketService } from './services/socket';
@@ -10,7 +10,7 @@ import { PlayerList } from './components/PlayerList';
 import { DiscoveryBanner } from './components/DiscoveryBanner';
 import { ConnectionBadge } from './components/ConnectionBadge';
 import { EmoteBar } from './components/EmoteBar';
-import { RefreshCw, ShieldCheck, Sparkles } from 'lucide-react';
+import { RefreshCw, ShieldCheck, Sparkles, MessageSquare, Swords } from 'lucide-react';
 
 export default function App() {
   const [gameStarted, setGameStarted] = useState(false);
@@ -25,7 +25,7 @@ export default function App() {
 
   const [showIdentity, setShowIdentity] = useState(false);
   const [showPlayerList, setShowPlayerList] = useState(false);
-  const [showChatMobile, setShowChatMobile] = useState(false);
+  const [showChat, setShowChat] = useState(false);
 
   const [discoveredLocations, setDiscoveredLocations] = useState<string[]>([]);
   const [activeDiscovery, setActiveDiscovery] = useState<{ id: string; name: string } | null>(null);
@@ -40,7 +40,6 @@ export default function App() {
 
     const socket = socketService.connect();
 
-    // If socket is already connected
     if (socket.connected) {
       setIsConnected(true);
       if (socket.id) setCurrentSocketId(socket.id);
@@ -50,10 +49,7 @@ export default function App() {
       setIsConnected(true);
       if (socket.id) setCurrentSocketId(socket.id);
     });
-
-    socket.on('disconnect', () => {
-      setIsConnected(false);
-    });
+    socket.on('disconnect', () => setIsConnected(false));
 
     socket.on('roomInit', (data: { selfId: string; room: { players: Record<string, PlayerState>; chatHistory: ChatMessage[] } }) => {
       setIsConnected(true);
@@ -62,20 +58,16 @@ export default function App() {
       setChatHistory(data.room.chatHistory || []);
     });
 
-    socket.on('playerJoined', (newPlayer: PlayerState) => {
-      setPlayers((prev) => ({ ...prev, [newPlayer.id]: newPlayer }));
+    socket.on('playerJoined', (p: PlayerState) => {
+      setPlayers((prev) => ({ ...prev, [p.id]: p }));
     });
 
     socket.on('playerLeft', (data: { id: string }) => {
-      setPlayers((prev) => {
-        const next = { ...prev };
-        delete next[data.id];
-        return next;
-      });
+      setPlayers((prev) => { const n = { ...prev }; delete n[data.id]; return n; });
     });
 
     socket.on('chatBroadcast', (msg: ChatMessage) => {
-      setChatHistory((prev) => [...prev, msg]);
+      setChatHistory((prev) => [...prev.slice(-199), msg]);
     });
 
     socket.on('locationDiscovered', (data: { locationId: string; locationName: string; discoveredLocations: string[] }) => {
@@ -84,23 +76,12 @@ export default function App() {
     });
   };
 
-  const handleWave = () => {
-    if (phaserRef.current) {
-      phaserRef.current.triggerEmote('wave', `👋 ${nickname} waved!`);
-    }
-  };
-
-  const handleTraitEmote = () => {
-    if (phaserRef.current) {
-      phaserRef.current.triggerEmote(
-        character.emoteEffect.name,
-        `${character.emoteEffect.icon} ${character.emoteEffect.label}`
-      );
-    }
-  };
+  const handleWave = () => phaserRef.current?.triggerEmote('wave', `👋 ${nickname} waved!`);
+  const handleTraitEmote = () => phaserRef.current?.triggerEmote(character.emoteEffect.name, `${character.emoteEffect.icon} ${character.emoteEffect.label}`);
+  const handleAttack = () => phaserRef.current?.triggerAttack();
 
   const handleDiscoveryFromGame = (locId: string, locName: string) => {
-    setDiscoveredLocations((prev) => (prev.includes(locId) ? prev : [...prev, locId]));
+    setDiscoveredLocations((prev) => prev.includes(locId) ? prev : [...prev, locId]);
     setActiveDiscovery({ id: locId, name: locName });
   };
 
@@ -113,53 +94,15 @@ export default function App() {
     setIsConnected(false);
   };
 
-  if (!gameStarted) {
-    return <StartScreen onStart={handleStartGame} />;
-  }
+  if (!gameStarted) return <StartScreen onStart={handleStartGame} />;
+
+  const playerCount = Object.keys(players).length;
 
   return (
-    <div className="relative w-screen h-screen bg-slate-950 overflow-hidden flex flex-col justify-between p-2 sm:p-3 select-none">
-      {/* Top Floating Header Bar */}
-      <header className="absolute top-2 sm:top-4 left-2 sm:left-4 right-2 sm:right-4 z-40 flex flex-row items-center justify-between gap-2 pointer-events-none">
-        <div className="pointer-events-auto flex items-center gap-2 max-w-[70%] sm:max-w-none">
-          <div className="bg-slate-900/90 border border-purple-500/30 rounded-2xl px-2.5 sm:px-4 py-1.5 sm:py-2 shadow-xl backdrop-blur-md flex items-center gap-2">
-            <img src="/chog_main.png" alt="Chog" className="w-5 h-5 sm:w-6 sm:h-6 rounded-lg object-cover" />
-            <div>
-              <h1 className="text-xs sm:text-sm font-extrabold text-white tracking-wide font-outfit truncate">Chog World</h1>
-              <p className="text-[9px] sm:text-[10px] text-purple-300 font-medium hidden sm:block">Monad NFT Edition</p>
-            </div>
-          </div>
+    <div className="fixed inset-0 bg-slate-950 overflow-hidden select-none flex" style={{ touchAction: 'none' }}>
 
-          <ConnectionBadge
-            isConnected={isConnected}
-            onlineCount={Object.keys(players).length}
-            roomId="chog-island-1"
-            socketId={currentSocketId}
-          />
-        </div>
-
-        <div className="pointer-events-auto flex items-center gap-1.5 sm:gap-2">
-          {mode === 'real_nft' ? (
-            <span className="hidden md:flex items-center gap-1.5 px-3 py-1.5 bg-emerald-950/70 border border-emerald-500/50 rounded-xl text-[11px] font-bold text-emerald-300 shadow-md">
-              <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" /> VERIFIED MONAD NFT
-            </span>
-          ) : (
-            <span className="hidden md:flex items-center gap-1.5 px-3 py-1.5 bg-amber-950/50 border border-amber-500/40 rounded-xl text-[11px] font-semibold text-amber-300">
-              <Sparkles className="w-3.5 h-3.5 text-amber-400" /> SIMULATED DEMO
-            </span>
-          )}
-
-          <button
-            onClick={handleLeaveWorld}
-            className="px-2.5 sm:px-3.5 py-1.5 sm:py-2 bg-slate-900/90 hover:bg-rose-950/80 border border-slate-800 hover:border-rose-500/40 text-slate-300 hover:text-rose-200 rounded-xl text-[11px] sm:text-xs font-semibold shadow-lg backdrop-blur-md transition flex items-center gap-1.5 whitespace-nowrap"
-          >
-            <RefreshCw className="w-3.5 h-3.5" /> <span className="hidden sm:inline">Leave</span>
-          </button>
-        </div>
-      </header>
-
-      {/* Phaser Game Engine Viewport */}
-      <main className="relative flex-1 w-full h-full flex items-center justify-center pt-12 sm:pt-14 pb-14 sm:pb-16">
+      {/* ── GAME VIEWPORT ── */}
+      <div className="relative flex-1 min-w-0 h-full">
         <PhaserGame
           ref={phaserRef}
           nickname={nickname}
@@ -170,76 +113,114 @@ export default function App() {
           walletAddress={character.ownerAddress}
           onDiscovery={handleDiscoveryFromGame}
         />
-      </main>
 
-      {/* Bottom Controls & Emote Toolbar */}
-      <footer className="absolute bottom-2 sm:bottom-4 left-2 sm:left-4 right-2 sm:right-4 z-40 flex flex-col sm:flex-row items-center justify-between gap-2 pointer-events-none">
-        <div className="pointer-events-auto hidden lg:flex items-center gap-2 bg-slate-900/80 border border-slate-800 rounded-2xl px-3.5 py-2 text-[11px] text-slate-400 backdrop-blur-md">
-          <span className="font-bold text-slate-300">Controls:</span>
-          <kbd className="px-1.5 py-0.5 bg-slate-800 border border-slate-700 rounded text-[10px] font-mono text-purple-300">WASD</kbd> or <span className="text-emerald-400">Tap / Click to move</span>
-        </div>
-
-        {/* Center Emote Bar */}
-        <div className="pointer-events-auto mx-auto sm:mx-0">
-          <EmoteBar
-            character={character}
-            onWave={handleWave}
-            onTraitEmote={handleTraitEmote}
-            onToggleIdentity={() => setShowIdentity((prev) => !prev)}
-            onTogglePlayerList={() => setShowPlayerList((prev) => !prev)}
-            onToggleChat={() => setShowChatMobile((prev) => !prev)}
-            discoveredCount={discoveredLocations.length}
-          />
-        </div>
-
-        {/* Desktop Permanent Right Chat Box */}
-        <div className="pointer-events-auto hidden lg:block">
-          <ChatBox chatHistory={chatHistory} currentUserId={currentSocketId} />
-        </div>
-      </footer>
-
-      {/* Mobile Chat Drawer / Overlay Modal */}
-      {showChatMobile && (
-        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-3 bg-slate-950/70 backdrop-blur-sm lg:hidden">
-          <div className="pointer-events-auto">
-            <ChatBox
-              chatHistory={chatHistory}
-              currentUserId={currentSocketId}
-              onClose={() => setShowChatMobile(false)}
-            />
+        {/* ── TOP HUD (floats over game) ── */}
+        <header className="absolute top-0 left-0 right-0 z-30 flex items-center justify-between px-2 py-1.5 sm:px-3 sm:py-2 pointer-events-none">
+          {/* Left: Logo + badge */}
+          <div className="flex items-center gap-1.5 pointer-events-auto">
+            <div className="flex items-center gap-1.5 bg-slate-900/85 border border-purple-500/30 rounded-xl px-2 py-1 sm:px-3 sm:py-1.5 backdrop-blur-md shadow-lg">
+              <img src="/chog_main.png" alt="Chog" className="w-5 h-5 rounded-md object-cover" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
+              <span className="text-xs font-extrabold text-white tracking-wide font-outfit hidden sm:inline">Chog World</span>
+            </div>
+            <ConnectionBadge isConnected={isConnected} onlineCount={playerCount} roomId="chog-island-1" socketId={currentSocketId} />
           </div>
-        </div>
-      )}
 
-      {/* Overlays / Modals */}
-      {showPlayerList && (
-        <div className="fixed sm:absolute top-16 sm:top-20 right-2 sm:right-4 z-50 max-w-[95vw]">
-          <PlayerList
-            players={players}
-            currentUserId={currentSocketId}
-            onClose={() => setShowPlayerList(false)}
+          {/* Right: Mode + Leave */}
+          <div className="flex items-center gap-1.5 pointer-events-auto">
+            {mode === 'real_nft' ? (
+              <span className="hidden sm:flex items-center gap-1 px-2 py-1 bg-emerald-950/70 border border-emerald-500/40 rounded-xl text-[10px] font-bold text-emerald-300">
+                <ShieldCheck className="w-3 h-3" /> VERIFIED NFT
+              </span>
+            ) : (
+              <span className="hidden sm:flex items-center gap-1 px-2 py-1 bg-amber-950/50 border border-amber-500/40 rounded-xl text-[10px] font-semibold text-amber-300">
+                <Sparkles className="w-3 h-3" /> DEMO
+              </span>
+            )}
+            <button
+              onClick={handleLeaveWorld}
+              className="flex items-center gap-1 px-2 py-1 sm:px-3 sm:py-1.5 bg-slate-900/85 hover:bg-rose-950/80 border border-slate-700 hover:border-rose-500/40 text-slate-300 hover:text-rose-200 rounded-xl text-[11px] font-semibold backdrop-blur-md transition shadow-lg"
+            >
+              <RefreshCw className="w-3 h-3" /> <span className="hidden sm:inline">Leave</span>
+            </button>
+          </div>
+        </header>
+
+        {/* ── BOTTOM HUD (floats over game) ── */}
+        <footer className="absolute bottom-0 left-0 right-0 z-30 pointer-events-none">
+          <div className="flex items-end justify-between px-2 py-2 sm:px-3 sm:py-3 gap-2">
+
+            {/* Controls hint — desktop only */}
+            <div className="hidden lg:flex pointer-events-auto items-center gap-1.5 bg-slate-900/80 border border-slate-800 rounded-xl px-3 py-1.5 text-[10px] text-slate-400 backdrop-blur-md">
+              <kbd className="px-1.5 bg-slate-800 border border-slate-700 rounded text-[9px] font-mono text-purple-300">WASD</kbd>
+              <span>move</span>
+              <kbd className="px-1.5 bg-slate-800 border border-slate-700 rounded text-[9px] font-mono text-amber-300">SPACE</kbd>
+              <span>attack</span>
+            </div>
+
+            {/* Center toolbar */}
+            <div className="pointer-events-auto mx-auto">
+              <EmoteBar
+                character={character}
+                onWave={handleWave}
+                onTraitEmote={handleTraitEmote}
+                onToggleIdentity={() => setShowIdentity(p => !p)}
+                onTogglePlayerList={() => setShowPlayerList(p => !p)}
+                onToggleChat={() => setShowChat(p => !p)}
+                discoveredCount={discoveredLocations.length}
+                onAttack={handleAttack}
+              />
+            </div>
+
+            {/* Right spacer on desktop (where chat panel lives) */}
+            <div className="hidden lg:block w-72 shrink-0" />
+          </div>
+        </footer>
+
+        {/* ── OVERLAYS ── */}
+        {showPlayerList && (
+          <div className="absolute top-14 right-2 sm:top-16 sm:right-3 z-50">
+            <PlayerList players={players} currentUserId={currentSocketId} onClose={() => setShowPlayerList(false)} />
+          </div>
+        )}
+
+        {showIdentity && (
+          <IdentityPanel character={character} nickname={nickname} onClose={() => setShowIdentity(false)} />
+        )}
+
+        {activeDiscovery && (
+          <DiscoveryBanner
+            locationId={activeDiscovery.id}
+            locationName={activeDiscovery.name}
+            character={character}
+            nickname={nickname}
+            totalDiscovered={discoveredLocations.length}
+            onClose={() => setActiveDiscovery(null)}
           />
+        )}
+
+        {/* ── MOBILE CHAT DRAWER ── */}
+        {showChat && (
+          <div className="fixed inset-0 z-50 flex items-end justify-center pb-2 px-2 bg-slate-950/60 backdrop-blur-sm lg:hidden" onClick={() => setShowChat(false)}>
+            <div className="pointer-events-auto w-full max-w-sm" onClick={(e) => e.stopPropagation()}>
+              <ChatBox chatHistory={chatHistory} currentUserId={currentSocketId} onClose={() => setShowChat(false)} />
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* ── DESKTOP SIDE CHAT PANEL ── */}
+      <aside className="hidden lg:flex flex-col w-72 shrink-0 h-full bg-slate-900/60 border-l border-purple-900/30 backdrop-blur-md">
+        {/* Chat header */}
+        <div className="flex items-center gap-2 px-3 py-3 border-b border-slate-800">
+          <MessageSquare className="w-4 h-4 text-purple-400" />
+          <span className="text-xs font-bold text-slate-200">World Chat</span>
+          <span className="ml-auto text-[10px] text-slate-500 font-mono">Live</span>
         </div>
-      )}
-
-      {showIdentity && (
-        <IdentityPanel
-          character={character}
-          nickname={nickname}
-          onClose={() => setShowIdentity(false)}
-        />
-      )}
-
-      {activeDiscovery && (
-        <DiscoveryBanner
-          locationId={activeDiscovery.id}
-          locationName={activeDiscovery.name}
-          character={character}
-          nickname={nickname}
-          totalDiscovered={discoveredLocations.length}
-          onClose={() => setActiveDiscovery(null)}
-        />
-      )}
+        {/* Chat fills remaining height */}
+        <div className="flex-1 min-h-0">
+          <ChatBox chatHistory={chatHistory} currentUserId={currentSocketId} embedded />
+        </div>
+      </aside>
     </div>
   );
 }

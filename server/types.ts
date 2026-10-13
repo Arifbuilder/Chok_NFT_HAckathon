@@ -18,6 +18,10 @@ export interface ServerPlayer {
   nftTokenId?: string;
   nftImageUrl?: string;
   walletAddress?: string;
+  health: number;
+  maxHealth: number;
+  isDead: boolean;
+  lastAttackTime: number;
 }
 
 export interface ServerChatMessage {

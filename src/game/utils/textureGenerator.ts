@@ -17,6 +17,8 @@ export function generateGameTextures(scene: Phaser.Scene) {
   generateShrineTexture(scene);
   generatePondDetailTexture(scene);
   generateParticleTexture(scene);
+  generateSwordTexture(scene);
+  generateSlashTexture(scene);
 
   // Generate authentic spiky Chog character textures
   CHOG_CHARACTERS.forEach((char) => {
@@ -362,6 +364,75 @@ function generateAuthenticChogSprite(
   ctx.beginPath();
   ctx.arc(32, 37, 4, 0.1, Math.PI - 0.1);
   ctx.stroke();
+
+  canvas.refresh();
+}
+
+export function generateSwordTexture(scene: Phaser.Scene) {
+  if (scene.textures.exists('sword')) return;
+  const canvas = scene.textures.createCanvas('sword', 32, 48);
+  if (!canvas) return;
+  const ctx = canvas.context;
+
+  const bladeGrad = ctx.createLinearGradient(12, 4, 20, 40);
+  bladeGrad.addColorStop(0, '#E0E0E0');
+  bladeGrad.addColorStop(0.5, '#FFFFFF');
+  bladeGrad.addColorStop(1, '#9E9E9E');
+  ctx.fillStyle = bladeGrad;
+  ctx.beginPath();
+  ctx.moveTo(16, 2);
+  ctx.lineTo(20, 36);
+  ctx.lineTo(12, 36);
+  ctx.closePath();
+  ctx.fill();
+
+  ctx.strokeStyle = '#DDDDDD';
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.moveTo(16, 2);
+  ctx.lineTo(13, 34);
+  ctx.stroke();
+
+  ctx.fillStyle = '#FFD700';
+  ctx.fillRect(7, 34, 18, 5);
+  ctx.strokeStyle = '#B8860B';
+  ctx.lineWidth = 1;
+  ctx.strokeRect(7, 34, 18, 5);
+
+  const handleGrad = ctx.createLinearGradient(13, 39, 19, 46);
+  handleGrad.addColorStop(0, '#5D4037');
+  handleGrad.addColorStop(1, '#3E2723');
+  ctx.fillStyle = handleGrad;
+  ctx.fillRect(13, 39, 6, 7);
+
+  ctx.fillStyle = '#FFD700';
+  ctx.beginPath();
+  ctx.arc(16, 46, 3, 0, Math.PI * 2);
+  ctx.fill();
+
+  canvas.refresh();
+}
+
+export function generateSlashTexture(scene: Phaser.Scene) {
+  if (scene.textures.exists('slash_effect')) return;
+  const canvas = scene.textures.createCanvas('slash_effect', 80, 80);
+  if (!canvas) return;
+  const ctx = canvas.context;
+
+  ctx.lineCap = 'round';
+  for (let i = 0; i < 4; i++) {
+    ctx.save();
+    ctx.translate(40, 40);
+    ctx.rotate((Math.PI / 4) * i - Math.PI / 8);
+    ctx.globalAlpha = 0.9 - i * 0.15;
+    ctx.strokeStyle = 'rgba(255,255,160,0.9)';
+    ctx.lineWidth = 4 - i;
+    ctx.beginPath();
+    ctx.moveTo(-30, -5 + i * 3);
+    ctx.quadraticCurveTo(0, -22 + i * 4, 30, -5 + i * 3);
+    ctx.stroke();
+    ctx.restore();
+  }
 
   canvas.refresh();
 }

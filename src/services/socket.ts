@@ -103,6 +103,10 @@ class SocketService {
     this.socket?.emit('chat', { text });
   }
 
+  public sendAttack(targetId: string, damage: number) {
+    this.socket?.emit('attack', { targetId, damage });
+  }
+
   public sendDiscover(locationId: string, locationName: string) {
     this.socket?.emit('discover', { locationId, locationName });
   }

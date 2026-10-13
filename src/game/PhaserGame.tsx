@@ -6,6 +6,7 @@ export interface PhaserGameHandle {
   triggerEmote: (type: string, text: string) => void;
   updateCharacter: (characterId: string) => void;
   getScene: () => IslandScene | null;
+  triggerAttack: () => void;
 }
 
 interface PhaserGameProps {
@@ -26,16 +27,15 @@ export const PhaserGame = forwardRef<PhaserGameHandle, PhaserGameProps>(
 
     useImperativeHandle(ref, () => ({
       triggerEmote: (type: string, text: string) => {
-        if (sceneRef.current) {
-          sceneRef.current.triggerLocalEmote(type, text);
-        }
+        sceneRef.current?.triggerLocalEmote(type, text);
       },
       updateCharacter: (newCharId: string) => {
-        if (sceneRef.current) {
-          sceneRef.current.updateCharacter(newCharId);
-        }
+        sceneRef.current?.updateCharacter(newCharId);
       },
       getScene: () => sceneRef.current,
+      triggerAttack: () => {
+        sceneRef.current?.performAttack();
+      },
     }));
 
     useEffect(() => {
@@ -44,13 +44,12 @@ export const PhaserGame = forwardRef<PhaserGameHandle, PhaserGameProps>(
       const config: Phaser.Types.Core.GameConfig = {
         type: Phaser.AUTO,
         parent: gameContainerRef.current,
-        width: 1000,
-        height: 650,
+        backgroundColor: '#0a0a1a',
         scale: {
-          mode: Phaser.Scale.FIT,
+          mode: Phaser.Scale.RESIZE,
           autoCenter: Phaser.Scale.CENTER_BOTH,
-          width: 1000,
-          height: 650,
+          width: '100%',
+          height: '100%',
         },
         pixelArt: true,
         physics: {
@@ -89,9 +88,11 @@ export const PhaserGame = forwardRef<PhaserGameHandle, PhaserGameProps>(
     }, []);
 
     return (
-      <div className="relative w-full h-full flex items-center justify-center bg-slate-950 overflow-hidden rounded-2xl border border-purple-900/40 shadow-2xl shadow-purple-950/50 p-1">
-        <div ref={gameContainerRef} className="w-full h-full flex items-center justify-center rounded-xl overflow-hidden shadow-inner max-h-full" />
-      </div>
+      <div
+        ref={gameContainerRef}
+        className="w-full h-full"
+        style={{ touchAction: 'none' }}
+      />
     );
   }
 );

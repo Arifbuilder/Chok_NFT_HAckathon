@@ -5,6 +5,12 @@ import { ISLAND_LOCATIONS } from '../../data/locations';
 import { PlayerState } from '../../types/game';
 import { getCharacterById } from '../../data/characters';
 
+const MAX_HEALTH = 100;
+const ATTACK_RANGE = 80;
+const ATTACK_DAMAGE = 20;
+const HEALTH_BAR_W = 40;
+const HEALTH_BAR_H = 5;
+
 export interface RemotePlayerSprite {
   container: Phaser.GameObjects.Container;
   sprite: Phaser.GameObjects.Sprite;
@@ -13,6 +19,13 @@ export interface RemotePlayerSprite {
   emoteBubble?: Phaser.GameObjects.Container;
   targetX: number;
   targetY: number;
+  health: number;
+  maxHealth: number;
+  isDead: boolean;
+  healthBarBg: Phaser.GameObjects.Rectangle;
+  healthBarFill: Phaser.GameObjects.Rectangle;
+  swordSprite: Phaser.GameObjects.Image;
+  socketId: string;
 }
 
 export class IslandScene extends Phaser.Scene {
@@ -20,6 +33,13 @@ export class IslandScene extends Phaser.Scene {
   private localPlayerSprite!: Phaser.GameObjects.Sprite;
   private localPlayerNameText!: Phaser.GameObjects.Text;
   private localPlayerBadgeText!: Phaser.GameObjects.Text;
+  private localSwordSprite!: Phaser.GameObjects.Image;
+
+  private localHealth = MAX_HEALTH;
+  private localMaxHealth = MAX_HEALTH;
+  private localIsDead = false;
+  private localHealthBarBg!: Phaser.GameObjects.Rectangle;
+  private localHealthBarFill!: Phaser.GameObjects.Rectangle;
 
   private remotePlayers: Map<string, RemotePlayerSprite> = new Map();
   private cursors!: Phaser.Types.Input.Keyboard.CursorKeys;
@@ -29,6 +49,7 @@ export class IslandScene extends Phaser.Scene {
     S: Phaser.Input.Keyboard.Key;
     D: Phaser.Input.Keyboard.Key;
   };
+  private spaceKey!: Phaser.Input.Keyboard.Key;
 
   private targetClickPos: Phaser.Math.Vector2 | null = null;
   private obstaclesGroup!: Phaser.Physics.Arcade.StaticGroup;
@@ -38,14 +59,19 @@ export class IslandScene extends Phaser.Scene {
   private localIsRealNFT = false;
   private localNftImageUrl?: string;
   private localNftTokenId?: string;
+  private localWalletAddress?: string;
 
   private localDiscoveredLocations: Set<string> = new Set();
-  
   private onDiscoveryCallback?: (locationId: string, locationName: string) => void;
-  private onEmoteTriggerCallback?: (type: string, text: string) => void;
 
   private lastMoveSendTime = 0;
   private moveSendInterval = 50;
+  private lastAttackTime = 0;
+  private attackCooldown = 650;
+  private isSwinging = false;
+
+  // Track our own socket id so we can filter correctly
+  private mySocketId = '';
 
   constructor() {
     super({ key: 'IslandScene' });
@@ -59,21 +85,23 @@ export class IslandScene extends Phaser.Scene {
     nftTokenId?: string;
     walletAddress?: string;
     onDiscovery?: (locationId: string, locationName: string) => void;
-    onEmoteTrigger?: (type: string, text: string) => void;
   }) {
     if (data.nickname) this.localNickname = data.nickname;
     if (data.characterId) this.localCharacterId = data.characterId;
-    if (data.isRealNFT) this.localIsRealNFT = data.isRealNFT;
+    if (data.isRealNFT !== undefined) this.localIsRealNFT = data.isRealNFT;
     if (data.nftImageUrl) this.localNftImageUrl = data.nftImageUrl;
     if (data.nftTokenId) this.localNftTokenId = data.nftTokenId;
+    if (data.walletAddress) this.localWalletAddress = data.walletAddress;
     if (data.onDiscovery) this.onDiscoveryCallback = data.onDiscovery;
-    if (data.onEmoteTrigger) this.onEmoteTriggerCallback = data.onEmoteTrigger;
+    // Reset combat state on scene restart
+    this.localHealth = MAX_HEALTH;
+    this.localIsDead = false;
+    this.remotePlayers.clear();
+    this.mySocketId = '';
   }
 
   public preload() {
     generateGameTextures(this);
-
-    // Preload NFT image if available
     if (this.localNftImageUrl && this.localNftTokenId) {
       this.load.image(`nft_local_${this.localNftTokenId}`, this.localNftImageUrl);
     }
@@ -85,12 +113,9 @@ export class IslandScene extends Phaser.Scene {
     this.physics.world.setBounds(0, 0, MAP_WIDTH, MAP_HEIGHT);
 
     this.renderMapTerrain(MAP_WIDTH, MAP_HEIGHT);
-
     this.obstaclesGroup = this.physics.add.staticGroup();
     this.setupMapObstacles(MAP_WIDTH, MAP_HEIGHT);
-
     this.renderLandmarks();
-
     this.createLocalPlayer(550 + Math.random() * 80, 480 + Math.random() * 80);
 
     this.cameras.main.setBounds(0, 0, MAP_WIDTH, MAP_HEIGHT);
@@ -105,27 +130,46 @@ export class IslandScene extends Phaser.Scene {
         S: this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.S),
         D: this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.D),
       };
+      this.spaceKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.SPACE);
     }
 
     this.input.on('pointerdown', (pointer: Phaser.Input.Pointer) => {
-      if (pointer.y < 40) return;
+      if (pointer.y < 50) return;
       this.targetClickPos = new Phaser.Math.Vector2(pointer.worldX, pointer.worldY);
     });
 
-    this.setupSocketEvents();
+    // Attack hint (fixed on screen)
+    this.add
+      .text(MAP_WIDTH / 2, 24, '⚔️ SPACE / Tap ⚔ button to attack!', {
+        fontFamily: 'Outfit, sans-serif',
+        fontSize: '12px',
+        color: '#FFD700',
+        stroke: '#121026',
+        strokeThickness: 3,
+      })
+      .setOrigin(0.5)
+      .setScrollFactor(0)
+      .setDepth(9999);
+
+    // Setup socket listeners THEN join (so we catch roomInit)
+    this.setupSocketListeners();
 
     socketService.joinRoom(this.localNickname, this.localCharacterId, {
       isRealNFT: this.localIsRealNFT,
       nftTokenId: this.localNftTokenId,
       nftImageUrl: this.localNftImageUrl,
+      walletAddress: this.localWalletAddress,
     });
   }
 
-  private renderMapTerrain(width: number, height: number) {
-    const TILE_SIZE = 64;
+  // ──────────────────────────────────────────────
+  //  MAP
+  // ──────────────────────────────────────────────
 
-    for (let x = 0; x < width; x += TILE_SIZE) {
-      for (let y = 0; y < height; y += TILE_SIZE) {
+  private renderMapTerrain(width: number, height: number) {
+    const T = 64;
+    for (let x = 0; x < width; x += T) {
+      for (let y = 0; y < height; y += T) {
         const isBorder = x < 96 || x > width - 96 || y < 96 || y > height - 96;
         if (isBorder) {
           this.add.image(x + 32, y + 32, 'tile_water');
@@ -136,132 +180,67 @@ export class IslandScene extends Phaser.Scene {
         }
       }
     }
-
-    for (let x = 550; x <= 750; x += TILE_SIZE) {
-      this.add.image(x, 560, 'tile_path').setAlpha(0.95);
-    }
-    for (let y = 480; y <= 650; y += TILE_SIZE) {
-      this.add.image(750, y, 'tile_path').setAlpha(0.95);
-    }
-
-    for (let x = 250; x <= 550; x += TILE_SIZE) {
-      this.add.image(x, 340, 'tile_path').setAlpha(0.95);
-    }
-    for (let y = 220; y <= 480; y += TILE_SIZE) {
-      this.add.image(250, y, 'tile_path').setAlpha(0.95);
-    }
-
-    for (let x = 550; x <= 750; x += TILE_SIZE) {
-      this.add.image(x, 340, 'tile_path').setAlpha(0.95);
-    }
-    for (let y = 220; y <= 340; y += TILE_SIZE) {
-      this.add.image(750, y, 'tile_path').setAlpha(0.95);
-    }
-
-    for (let px = 686; px <= 814; px += TILE_SIZE) {
-      for (let py = 586; py <= 714; py += TILE_SIZE) {
+    for (let x = 550; x <= 750; x += T) this.add.image(x, 560, 'tile_path').setAlpha(0.95);
+    for (let y = 480; y <= 650; y += T) this.add.image(750, y, 'tile_path').setAlpha(0.95);
+    for (let x = 250; x <= 550; x += T) this.add.image(x, 340, 'tile_path').setAlpha(0.95);
+    for (let y = 220; y <= 480; y += T) this.add.image(250, y, 'tile_path').setAlpha(0.95);
+    for (let x = 550; x <= 750; x += T) this.add.image(x, 340, 'tile_path').setAlpha(0.95);
+    for (let y = 220; y <= 340; y += T) this.add.image(750, y, 'tile_path').setAlpha(0.95);
+    for (let px = 686; px <= 814; px += T)
+      for (let py = 586; py <= 714; py += T)
         this.add.image(px, py, 'tile_plaza');
-      }
-    }
   }
 
   private setupMapObstacles(width: number, height: number) {
-    const northWall = this.add.rectangle(width / 2, 60, width, 120, 0x000000, 0);
-    const southWall = this.add.rectangle(width / 2, height - 60, width, 120, 0x000000, 0);
-    const westWall = this.add.rectangle(60, height / 2, 120, height, 0x000000, 0);
-    const eastWall = this.add.rectangle(width - 60, height / 2, 120, height, 0x000000, 0);
+    const walls = [
+      this.add.rectangle(width / 2, 60, width, 120, 0, 0),
+      this.add.rectangle(width / 2, height - 60, width, 120, 0, 0),
+      this.add.rectangle(60, height / 2, 120, height, 0, 0),
+      this.add.rectangle(width - 60, height / 2, 120, height, 0, 0),
+    ];
+    walls.forEach(w => { this.physics.add.existing(w, true); this.obstaclesGroup.add(w); });
 
-    [northWall, southWall, westWall, eastWall].forEach((w) => {
-      this.physics.add.existing(w, true);
-      this.obstaclesGroup.add(w);
-    });
-
-    const pondBody = this.add.circle(250, 220, 75, 0x0288d1, 0.85);
-    this.physics.add.existing(pondBody, true);
-    this.obstaclesGroup.add(pondBody);
-
+    const pond = this.add.circle(250, 220, 75, 0x0288d1, 0.85);
+    this.physics.add.existing(pond, true);
+    this.obstaclesGroup.add(pond);
     this.add.image(220, 200, 'obj_lily');
     this.add.image(280, 230, 'obj_lily');
     this.add.image(240, 250, 'obj_lily');
 
-    const treePositions = [
-      { x: 380, y: 180 },
-      { x: 440, y: 160 },
-      { x: 200, y: 450 },
-      { x: 180, y: 550 },
-      { x: 920, y: 420 },
-      { x: 980, y: 500 },
-      { x: 600, y: 150 },
-      { x: 350, y: 720 },
-      { x: 450, y: 780 },
-    ];
-
-    treePositions.forEach((pos) => {
-      const tree = this.add.image(pos.x, pos.y, 'obj_tree');
-      tree.setDepth(pos.y);
-      const collider = this.add.circle(pos.x, pos.y + 20, 24, 0x000000, 0);
-      this.physics.add.existing(collider, true);
-      this.obstaclesGroup.add(collider);
+    [
+      { x: 380, y: 180 }, { x: 440, y: 160 }, { x: 200, y: 450 }, { x: 180, y: 550 },
+      { x: 920, y: 420 }, { x: 980, y: 500 }, { x: 600, y: 150 }, { x: 350, y: 720 }, { x: 450, y: 780 },
+    ].forEach(pos => {
+      this.add.image(pos.x, pos.y, 'obj_tree').setDepth(pos.y);
+      const c = this.add.circle(pos.x, pos.y + 20, 24, 0, 0);
+      this.physics.add.existing(c, true); this.obstaclesGroup.add(c);
     });
 
-    const rockPositions = [
-      { x: 160, y: 280 },
-      { x: 330, y: 280 },
-      { x: 880, y: 180 },
-      { x: 680, y: 780 },
-    ];
-
-    rockPositions.forEach((pos) => {
-      const rock = this.add.image(pos.x, pos.y, 'obj_rock');
-      rock.setDepth(pos.y);
-      const collider = this.add.circle(pos.x, pos.y, 20, 0x000000, 0);
-      this.physics.add.existing(collider, true);
-      this.obstaclesGroup.add(collider);
+    [{ x: 160, y: 280 }, { x: 330, y: 280 }, { x: 880, y: 180 }, { x: 680, y: 780 }].forEach(pos => {
+      this.add.image(pos.x, pos.y, 'obj_rock').setDepth(pos.y);
+      const c = this.add.circle(pos.x, pos.y, 20, 0, 0);
+      this.physics.add.existing(c, true); this.obstaclesGroup.add(c);
     });
   }
 
   private renderLandmarks() {
-    const shrine = this.add.image(750, 200, 'obj_shrine');
-    shrine.setDepth(200);
-    const shrineCollider = this.add.rectangle(750, 210, 80, 50, 0x000000, 0);
-    this.physics.add.existing(shrineCollider, true);
-    this.obstaclesGroup.add(shrineCollider);
+    this.add.image(750, 200, 'obj_shrine').setDepth(200);
+    const sc = this.add.rectangle(750, 210, 80, 50, 0, 0);
+    this.physics.add.existing(sc, true); this.obstaclesGroup.add(sc);
 
-    this.add
-      .text(750, 130, '⚡ SHRINE OF MONAD', {
-        fontFamily: 'Outfit, sans-serif',
-        fontSize: '14px',
-        color: '#00F58C',
-        stroke: '#121026',
-        strokeThickness: 3,
-      })
-      .setOrigin(0.5);
-
-    this.add
-      .text(250, 130, '💧 POND OF TRANQUILITY', {
-        fontFamily: 'Outfit, sans-serif',
-        fontSize: '14px',
-        color: '#4fc3f7',
-        stroke: '#121026',
-        strokeThickness: 3,
-      })
-      .setOrigin(0.5);
-
-    this.add
-      .text(750, 550, '🏛️ MONAD SPEED PLAZA', {
-        fontFamily: 'Outfit, sans-serif',
-        fontSize: '14px',
-        color: '#836EF9',
-        stroke: '#121026',
-        strokeThickness: 3,
-      })
-      .setOrigin(0.5);
+    const style = (c: string) => ({ fontFamily: 'Outfit,sans-serif', fontSize: '14px', color: c, stroke: '#121026', strokeThickness: 3 });
+    this.add.text(750, 130, '⚡ SHRINE OF MONAD', style('#00F58C')).setOrigin(0.5);
+    this.add.text(250, 130, '💧 POND OF TRANQUILITY', style('#4fc3f7')).setOrigin(0.5);
+    this.add.text(750, 550, '🏛️ MONAD SPEED PLAZA', style('#836EF9')).setOrigin(0.5);
   }
+
+  // ──────────────────────────────────────────────
+  //  PLAYER CREATION
+  // ──────────────────────────────────────────────
 
   private createLocalPlayer(x: number, y: number) {
     this.localPlayer = this.add.container(x, y);
     this.physics.world.enable(this.localPlayer);
-
     const body = this.localPlayer.body as Phaser.Physics.Arcade.Body;
     body.setCollideWorldBounds(true);
     body.setSize(36, 36);
@@ -272,39 +251,37 @@ export class IslandScene extends Phaser.Scene {
       : this.localCharacterId;
 
     this.localPlayerSprite = this.add.sprite(0, 0, key);
-    if (key.startsWith('nft_local_')) {
-      this.localPlayerSprite.setDisplaySize(44, 44);
-    }
+    if (key.startsWith('nft_local_')) this.localPlayerSprite.setDisplaySize(44, 44);
     this.localPlayer.add(this.localPlayerSprite);
+
+    this.localSwordSprite = this.add.image(20, 6, 'sword');
+    this.localSwordSprite.setDisplaySize(16, 26);
+    this.localPlayer.add(this.localSwordSprite);
 
     const charDef = getCharacterById(this.localCharacterId);
 
-    this.localPlayerNameText = this.add
-      .text(0, -44, this.localNickname, {
-        fontFamily: 'Outfit, sans-serif',
-        fontSize: '13px',
-        color: '#FFFFFF',
-        stroke: '#121026',
-        strokeThickness: 3,
-      })
-      .setOrigin(0.5);
+    this.localHealthBarBg = this.add.rectangle(0, -60, HEALTH_BAR_W + 2, HEALTH_BAR_H + 2, 0x111111);
+    this.localHealthBarBg.setOrigin(0.5, 0.5);
+    this.localPlayer.add(this.localHealthBarBg);
+
+    this.localHealthBarFill = this.add.rectangle(-HEALTH_BAR_W / 2, -60, HEALTH_BAR_W, HEALTH_BAR_H, 0x00e676);
+    this.localHealthBarFill.setOrigin(0, 0.5);
+    this.localPlayer.add(this.localHealthBarFill);
+
+    this.localPlayerNameText = this.add.text(0, -46, this.localNickname, {
+      fontFamily: 'Outfit,sans-serif', fontSize: '13px', color: '#FFFFFF',
+      stroke: '#121026', strokeThickness: 3,
+    }).setOrigin(0.5);
     this.localPlayer.add(this.localPlayerNameText);
 
     const badgeTitle = this.localIsRealNFT
-      ? `⚡ VERIFIED MONAD NFT #${this.localNftTokenId || 'GENESIS'}`
+      ? `⚡ NFT #${this.localNftTokenId || 'GENESIS'}`
       : `[${charDef.rarity}] ${charDef.name}`;
-
-    const badgeColor = this.localIsRealNFT ? '#00F58C' : charDef.colorHex;
-
-    this.localPlayerBadgeText = this.add
-      .text(0, -30, badgeTitle, {
-        fontFamily: 'Outfit, sans-serif',
-        fontSize: '10px',
-        color: badgeColor,
-        stroke: '#121026',
-        strokeThickness: 2,
-      })
-      .setOrigin(0.5);
+    this.localPlayerBadgeText = this.add.text(0, -33, badgeTitle, {
+      fontFamily: 'Outfit,sans-serif', fontSize: '10px',
+      color: this.localIsRealNFT ? '#00F58C' : charDef.colorHex,
+      stroke: '#121026', strokeThickness: 2,
+    }).setOrigin(0.5);
     this.localPlayer.add(this.localPlayerBadgeText);
 
     this.localPlayer.setDepth(y);
@@ -312,50 +289,56 @@ export class IslandScene extends Phaser.Scene {
   }
 
   private createRemotePlayer(player: PlayerState): RemotePlayerSprite {
+    // Guard: don't create if already exists or it's us
+    if (this.mySocketId && player.id === this.mySocketId) return null as any;
+    if (this.remotePlayers.has(player.id)) return this.remotePlayers.get(player.id)!;
+
     const container = this.add.container(player.x, player.y);
-    const spriteKey = player.characterId || 'chog-genesis-purple';
+    const spriteKey = this.textures.exists(player.characterId) ? player.characterId : 'chog-genesis-purple';
     const sprite = this.add.sprite(0, 0, spriteKey);
     container.add(sprite);
 
-    const charDef = getCharacterById(spriteKey);
+    const swordSprite = this.add.image(20, 6, 'sword');
+    swordSprite.setDisplaySize(16, 26);
+    container.add(swordSprite);
 
-    const nameText = this.add
-      .text(0, -44, player.nickname || 'ChogPlayer', {
-        fontFamily: 'Outfit, sans-serif',
-        fontSize: '13px',
-        color: player.isVerifiedNFT ? '#00F58C' : '#FFFFFF',
-        stroke: '#121026',
-        strokeThickness: 3,
-      })
-      .setOrigin(0.5);
+    const charDef = getCharacterById(player.characterId || 'chog-genesis-purple');
+
+    const healthBarBg = this.add.rectangle(0, -60, HEALTH_BAR_W + 2, HEALTH_BAR_H + 2, 0x111111);
+    healthBarBg.setOrigin(0.5, 0.5);
+    container.add(healthBarBg);
+
+    const healthBarFill = this.add.rectangle(-HEALTH_BAR_W / 2, -60, HEALTH_BAR_W, HEALTH_BAR_H, 0x00e676);
+    healthBarFill.setOrigin(0, 0.5);
+    container.add(healthBarFill);
+
+    const nameText = this.add.text(0, -46, player.nickname || 'ChogPlayer', {
+      fontFamily: 'Outfit,sans-serif', fontSize: '13px',
+      color: player.isVerifiedNFT ? '#00F58C' : '#FFFFFF',
+      stroke: '#121026', strokeThickness: 3,
+    }).setOrigin(0.5);
     container.add(nameText);
 
     const badgeTitle = player.isVerifiedNFT
-      ? `⚡ VERIFIED MONAD NFT #${player.nftTokenId || ''}`
+      ? `⚡ NFT #${player.nftTokenId || ''}`
       : `[${charDef.rarity}] ${charDef.name}`;
-
-    const badgeColor = player.isVerifiedNFT ? '#00F58C' : charDef.colorHex;
-
-    const badgeText = this.add
-      .text(0, -30, badgeTitle, {
-        fontFamily: 'Outfit, sans-serif',
-        fontSize: '10px',
-        color: badgeColor,
-        stroke: '#121026',
-        strokeThickness: 2,
-      })
-      .setOrigin(0.5);
+    const badgeText = this.add.text(0, -33, badgeTitle, {
+      fontFamily: 'Outfit,sans-serif', fontSize: '10px',
+      color: player.isVerifiedNFT ? '#00F58C' : charDef.colorHex,
+      stroke: '#121026', strokeThickness: 2,
+    }).setOrigin(0.5);
     container.add(badgeText);
 
     container.setDepth(player.y);
 
     const remoteObj: RemotePlayerSprite = {
-      container,
-      sprite,
-      nameText,
-      badgeText,
-      targetX: player.x,
-      targetY: player.y,
+      container, sprite, nameText, badgeText,
+      targetX: player.x, targetY: player.y,
+      health: player.health ?? MAX_HEALTH,
+      maxHealth: player.maxHealth ?? MAX_HEALTH,
+      isDead: player.isDead ?? false,
+      healthBarBg, healthBarFill, swordSprite,
+      socketId: player.id,
     };
 
     if (player.currentEmote) {
@@ -366,97 +349,298 @@ export class IslandScene extends Phaser.Scene {
     return remoteObj;
   }
 
-  private setupSocketEvents() {
+  private removeRemotePlayer(id: string) {
+    const remote = this.remotePlayers.get(id);
+    if (remote) {
+      remote.container.destroy();
+      this.remotePlayers.delete(id);
+    }
+  }
+
+  // ──────────────────────────────────────────────
+  //  HEALTH BAR
+  // ──────────────────────────────────────────────
+
+  private updateHealthBar(fill: Phaser.GameObjects.Rectangle, health: number, maxHealth: number) {
+    const pct = Math.max(0, Math.min(1, health / maxHealth));
+    fill.width = HEALTH_BAR_W * pct;
+    if (pct > 0.6) fill.setFillStyle(0x00e676);
+    else if (pct > 0.3) fill.setFillStyle(0xffee58);
+    else fill.setFillStyle(0xff1744);
+  }
+
+  // ──────────────────────────────────────────────
+  //  SOCKET EVENTS — uses .off/.on to avoid duplicates on scene restart
+  // ──────────────────────────────────────────────
+
+  private setupSocketListeners() {
     const socket = socketService.getSocket();
     if (!socket) return;
 
+    // Remove old scene-specific listeners to avoid stacking on restart
+    socket.off('roomInit');
+    socket.off('playerJoined');
+    socket.off('playerMoved');
+    socket.off('playerEmoted');
+    socket.off('playerLeft');
+    socket.off('playerHit');
+    socket.off('playerDied');
+    socket.off('playerRespawned');
+
     socket.on('roomInit', (data: { selfId: string; room: { players: Record<string, PlayerState> } }) => {
+      this.mySocketId = data.selfId;
+      // Destroy any stale remote players first
+      this.remotePlayers.forEach((_, id) => this.removeRemotePlayer(id));
+      this.remotePlayers.clear();
+
       Object.values(data.room.players).forEach((p) => {
-        if (p.id !== data.selfId && !this.remotePlayers.has(p.id)) {
+        if (p.id !== data.selfId) {
           this.createRemotePlayer(p);
         }
       });
     });
 
     socket.on('playerJoined', (p: PlayerState) => {
+      if (p.id === this.mySocketId) return;
       if (!this.remotePlayers.has(p.id)) {
         this.createRemotePlayer(p);
       }
     });
 
-    socket.on('playerMoved', (data: { id: string; x: number; y: number; direction?: string }) => {
+    socket.on('playerMoved', (data: { id: string; x: number; y: number }) => {
       const remote = this.remotePlayers.get(data.id);
-      if (remote) {
+      if (remote && !remote.isDead) {
         remote.targetX = data.x;
         remote.targetY = data.y;
       }
     });
 
-    socket.on('playerEmoted', (data: { id: string; nickname: string; emote: { type: string; text: string } }) => {
+    socket.on('playerEmoted', (data: { id: string; emote: { text: string } }) => {
       if (data.id === socket.id) {
         this.showLocalEmoteBubble(data.emote.text);
       } else {
         const remote = this.remotePlayers.get(data.id);
-        if (remote) {
-          this.showEmoteBubbleOnContainer(remote.container, data.emote.text);
-        }
+        if (remote) this.showEmoteBubbleOnContainer(remote.container, data.emote.text);
       }
     });
 
     socket.on('playerLeft', (data: { id: string }) => {
-      const remote = this.remotePlayers.get(data.id);
-      if (remote) {
-        remote.container.destroy();
-        this.remotePlayers.delete(data.id);
+      this.removeRemotePlayer(data.id);
+    });
+
+    socket.on('playerHit', (data: { attackerId: string; targetId: string; damage: number; targetHealth: number; targetMaxHealth: number }) => {
+      const iAmTarget = data.targetId === socket.id;
+      const iAmAttacker = data.attackerId === socket.id;
+
+      if (iAmTarget) {
+        this.localHealth = data.targetHealth;
+        this.updateHealthBar(this.localHealthBarFill, this.localHealth, this.localMaxHealth);
+        this.showDamageNumber(this.localPlayer.x, this.localPlayer.y, data.damage, true);
+        this.cameras.main.shake(120, 0.008);
+        this.localPlayerSprite.setTint(0xff4444);
+        this.time.delayedCall(300, () => this.localPlayerSprite.clearTint());
+      } else {
+        const remote = this.remotePlayers.get(data.targetId);
+        if (remote) {
+          remote.health = data.targetHealth;
+          this.updateHealthBar(remote.healthBarFill, remote.health, remote.maxHealth);
+          this.showDamageNumber(remote.container.x, remote.container.y, data.damage, false);
+          remote.sprite.setTint(0xff4444);
+          this.time.delayedCall(300, () => { if (remote.sprite && remote.sprite.active) remote.sprite.clearTint(); });
+          if (iAmAttacker) this.swingRemoteSword(remote.swordSprite);
+        }
+      }
+
+      if (iAmAttacker) {
+        const tx = data.targetId === socket.id ? this.localPlayer.x : this.remotePlayers.get(data.targetId)?.container.x;
+        const ty = data.targetId === socket.id ? this.localPlayer.y : this.remotePlayers.get(data.targetId)?.container.y;
+        if (tx !== undefined && ty !== undefined) this.triggerSlashAt(tx, ty);
+      }
+    });
+
+    socket.on('playerDied', (data: { targetId: string }) => {
+      if (data.targetId === socket.id) {
+        this.handleLocalDeath();
+      } else {
+        const remote = this.remotePlayers.get(data.targetId);
+        if (remote) this.handleRemoteDeath(remote);
+      }
+    });
+
+    socket.on('playerRespawned', (data: { id: string; x: number; y: number; health: number; maxHealth: number }) => {
+      if (data.id === socket.id) {
+        this.handleLocalRespawn(data.x, data.y, data.health);
+      } else {
+        const remote = this.remotePlayers.get(data.id);
+        if (remote) this.handleRemoteRespawn(remote, data.x, data.y, data.health, data.maxHealth);
       }
     });
   }
 
-  public update(time: number, delta: number) {
-    if (!this.localPlayer) return;
+  // ──────────────────────────────────────────────
+  //  COMBAT
+  // ──────────────────────────────────────────────
 
+  public performAttack() {
+    if (this.localIsDead) return;
+    const now = this.time.now;
+    if (now - this.lastAttackTime < this.attackCooldown) return;
+    this.lastAttackTime = now;
+
+    let nearestId: string | null = null;
+    let nearestDist = Infinity;
+
+    this.remotePlayers.forEach((remote, id) => {
+      if (remote.isDead) return;
+      const dist = Phaser.Math.Distance.Between(
+        this.localPlayer.x, this.localPlayer.y,
+        remote.container.x, remote.container.y
+      );
+      if (dist <= ATTACK_RANGE && dist < nearestDist) {
+        nearestDist = dist;
+        nearestId = id;
+      }
+    });
+
+    this.swingSword(this.localSwordSprite);
+
+    if (nearestId) {
+      socketService.sendAttack(nearestId, ATTACK_DAMAGE);
+    }
+  }
+
+  private swingSword(sword: Phaser.GameObjects.Image) {
+    if (this.isSwinging) return;
+    this.isSwinging = true;
+    this.tweens.add({
+      targets: sword,
+      angle: { from: -100, to: 50 },
+      duration: 200,
+      ease: 'Power2',
+      yoyo: true,
+      onComplete: () => { sword.angle = 0; this.isSwinging = false; },
+    });
+  }
+
+  private swingRemoteSword(sword: Phaser.GameObjects.Image) {
+    this.tweens.add({
+      targets: sword,
+      angle: { from: -100, to: 50 },
+      duration: 200,
+      ease: 'Power2',
+      yoyo: true,
+      onComplete: () => { sword.angle = 0; },
+    });
+  }
+
+  private triggerSlashAt(x: number, y: number) {
+    const slash = this.add.image(x, y - 10, 'slash_effect');
+    slash.setDepth(y + 200).setScale(0.4);
+    this.tweens.add({
+      targets: slash, scale: 1.4, alpha: 0, angle: 25, duration: 320, ease: 'Power2',
+      onComplete: () => slash.destroy(),
+    });
+  }
+
+  private showDamageNumber(x: number, y: number, damage: number, isLocal: boolean) {
+    const dmgText = this.add.text(x, y - 28, `-${damage}`, {
+      fontFamily: 'Outfit,sans-serif', fontSize: '20px', fontStyle: 'bold',
+      color: isLocal ? '#FF4444' : '#FFD700',
+      stroke: '#121026', strokeThickness: 4,
+    }).setOrigin(0.5).setDepth(9999);
+    this.tweens.add({
+      targets: dmgText, y: y - 80, alpha: 0, scale: 1.4, duration: 900, ease: 'Power2',
+      onComplete: () => dmgText.destroy(),
+    });
+  }
+
+  // ──────────────────────────────────────────────
+  //  DEATH / RESPAWN
+  // ──────────────────────────────────────────────
+
+  private handleLocalDeath() {
+    this.localIsDead = true;
+    this.localHealth = 0;
+    this.updateHealthBar(this.localHealthBarFill, 0, this.localMaxHealth);
+    this.tweens.add({ targets: this.localPlayer, angle: 360, alpha: 0.3, scale: 0.6, duration: 600, ease: 'Power2' });
+
+    const deathText = this.add.text(
+      this.cameras.main.width / 2, this.cameras.main.height / 2,
+      '💀 YOU DIED!\nRespawning in 5s...', {
+        fontFamily: 'Outfit,sans-serif', fontSize: '26px', fontStyle: 'bold',
+        color: '#FF1744', stroke: '#121026', strokeThickness: 6, align: 'center',
+      }
+    ).setOrigin(0.5).setScrollFactor(0).setDepth(10000);
+
+    this.time.delayedCall(4800, () => deathText.destroy());
+  }
+
+  private handleLocalRespawn(x: number, y: number, health: number) {
+    this.localIsDead = false;
+    this.localHealth = health;
+    this.localPlayer.x = x;
+    this.localPlayer.y = y;
+    this.tweens.add({ targets: this.localPlayer, angle: 0, alpha: 1, scale: 1, duration: 500, ease: 'Back.easeOut' });
+    this.updateHealthBar(this.localHealthBarFill, health, this.localMaxHealth);
+    this.triggerSparklesAt(x, y, 0x00F58C);
+  }
+
+  private handleRemoteDeath(remote: RemotePlayerSprite) {
+    remote.isDead = true;
+    remote.health = 0;
+    this.updateHealthBar(remote.healthBarFill, 0, remote.maxHealth);
+    this.tweens.add({ targets: remote.container, angle: 360, alpha: 0.3, scale: 0.6, duration: 600, ease: 'Power2' });
+  }
+
+  private handleRemoteRespawn(remote: RemotePlayerSprite, x: number, y: number, health: number, maxHealth: number) {
+    remote.isDead = false;
+    remote.health = health;
+    remote.maxHealth = maxHealth;
+    remote.targetX = x;
+    remote.targetY = y;
+    remote.container.x = x;
+    remote.container.y = y;
+    this.tweens.add({ targets: remote.container, angle: 0, alpha: 1, scale: 1, duration: 500, ease: 'Back.easeOut' });
+    this.updateHealthBar(remote.healthBarFill, health, maxHealth);
+    this.triggerSparklesAt(x, y, 0x00F58C);
+  }
+
+  // ──────────────────────────────────────────────
+  //  UPDATE
+  // ──────────────────────────────────────────────
+
+  public update(time: number, _delta: number) {
+    if (!this.localPlayer) return;
     const SPEED = 220;
     const body = this.localPlayer.body as Phaser.Physics.Arcade.Body;
     body.setVelocity(0, 0);
+
+    if (this.spaceKey && Phaser.Input.Keyboard.JustDown(this.spaceKey)) {
+      this.performAttack();
+    }
+
+    if (this.localIsDead) return;
 
     let moveX = 0;
     let moveY = 0;
     let dir: 'up' | 'down' | 'left' | 'right' = 'down';
 
-    if (this.wasdKeys) {
-      if (this.cursors.left.isDown || this.wasdKeys.A.isDown) {
-        moveX = -1;
-        dir = 'left';
-      } else if (this.cursors.right.isDown || this.wasdKeys.D.isDown) {
-        moveX = 1;
-        dir = 'right';
-      }
-
-      if (this.cursors.up.isDown || this.wasdKeys.W.isDown) {
-        moveY = -1;
-        dir = 'up';
-      } else if (this.cursors.down.isDown || this.wasdKeys.S.isDown) {
-        moveY = 1;
-        dir = 'down';
-      }
+    if (this.cursors && this.wasdKeys) {
+      if (this.cursors.left.isDown || this.wasdKeys.A.isDown) { moveX = -1; dir = 'left'; }
+      else if (this.cursors.right.isDown || this.wasdKeys.D.isDown) { moveX = 1; dir = 'right'; }
+      if (this.cursors.up.isDown || this.wasdKeys.W.isDown) { moveY = -1; dir = 'up'; }
+      else if (this.cursors.down.isDown || this.wasdKeys.S.isDown) { moveY = 1; dir = 'down'; }
     }
 
     if (moveX !== 0 || moveY !== 0) {
       this.targetClickPos = null;
     } else if (this.targetClickPos) {
       const dist = Phaser.Math.Distance.Between(
-        this.localPlayer.x,
-        this.localPlayer.y,
-        this.targetClickPos.x,
-        this.targetClickPos.y
+        this.localPlayer.x, this.localPlayer.y, this.targetClickPos.x, this.targetClickPos.y
       );
-
       if (dist > 10) {
         const angle = Phaser.Math.Angle.Between(
-          this.localPlayer.x,
-          this.localPlayer.y,
-          this.targetClickPos.x,
-          this.targetClickPos.y
+          this.localPlayer.x, this.localPlayer.y, this.targetClickPos.x, this.targetClickPos.y
         );
         moveX = Math.cos(angle);
         moveY = Math.sin(angle);
@@ -470,6 +654,8 @@ export class IslandScene extends Phaser.Scene {
       body.setVelocity(vec.x, vec.y);
       this.localPlayer.setDepth(this.localPlayer.y);
       this.localPlayerSprite.y = Math.sin(time / 80) * 3;
+      if (moveX < 0) { this.localSwordSprite.x = -20; this.localSwordSprite.setFlipX(true); }
+      else { this.localSwordSprite.x = 20; this.localSwordSprite.setFlipX(false); }
     } else {
       this.localPlayerSprite.y = 0;
     }
@@ -477,39 +663,35 @@ export class IslandScene extends Phaser.Scene {
     if (time - this.lastMoveSendTime > this.moveSendInterval) {
       this.lastMoveSendTime = time;
       socketService.sendMove(
-        Math.round(this.localPlayer.x),
-        Math.round(this.localPlayer.y),
-        dir,
+        Math.round(this.localPlayer.x), Math.round(this.localPlayer.y), dir,
         moveX !== 0 || moveY !== 0
       );
     }
 
     this.remotePlayers.forEach((remote) => {
-      remote.container.x = Phaser.Math.Linear(remote.container.x, remote.targetX, 0.25);
-      remote.container.y = Phaser.Math.Linear(remote.container.y, remote.targetY, 0.25);
-      remote.container.setDepth(remote.container.y);
+      if (!remote.isDead) {
+        remote.container.x = Phaser.Math.Linear(remote.container.x, remote.targetX, 0.25);
+        remote.container.y = Phaser.Math.Linear(remote.container.y, remote.targetY, 0.25);
+        remote.container.setDepth(remote.container.y);
+      }
     });
 
     this.checkLandmarkDiscoveries();
   }
 
+  // ──────────────────────────────────────────────
+  //  EMOTES / DISCOVERIES / SPARKLES
+  // ──────────────────────────────────────────────
+
   private checkLandmarkDiscoveries() {
     const px = this.localPlayer.x;
     const py = this.localPlayer.y;
-
     ISLAND_LOCATIONS.forEach((loc) => {
       if (this.localDiscoveredLocations.has(loc.id)) return;
-
-      const dist = Phaser.Math.Distance.Between(px, py, loc.x, loc.y);
-      if (dist <= loc.radius) {
+      if (Phaser.Math.Distance.Between(px, py, loc.x, loc.y) <= loc.radius) {
         this.localDiscoveredLocations.add(loc.id);
-
         socketService.sendDiscover(loc.id, loc.name);
-
-        if (this.onDiscoveryCallback) {
-          this.onDiscoveryCallback(loc.id, loc.name);
-        }
-
+        if (this.onDiscoveryCallback) this.onDiscoveryCallback(loc.id, loc.name);
         this.triggerSparklesAt(loc.x, loc.y, 0x00F58C);
       }
     });
@@ -518,7 +700,6 @@ export class IslandScene extends Phaser.Scene {
   public triggerLocalEmote(type: string, text: string) {
     socketService.sendEmote(type, text);
     this.showLocalEmoteBubble(text);
-
     const charDef = getCharacterById(this.localCharacterId);
     this.triggerSparklesAt(this.localPlayer.x, this.localPlayer.y - 20, charDef.particleColor);
   }
@@ -528,51 +709,27 @@ export class IslandScene extends Phaser.Scene {
   }
 
   private showEmoteBubbleOnContainer(container: Phaser.GameObjects.Container, text: string) {
-    const existing = container.getByName('emoteBubble');
+    const existing = container.getByName('emoteBubble') as Phaser.GameObjects.Container;
     if (existing) existing.destroy();
-
-    const bubbleGroup = this.add.container(0, -68);
-    bubbleGroup.setName('emoteBubble');
-
-    const bubbleText = this.add
-      .text(0, 0, text, {
-        fontFamily: 'Outfit, sans-serif',
-        fontSize: '14px',
-        color: '#FFFFFF',
-        backgroundColor: 'rgba(18, 16, 38, 0.9)',
-        padding: { x: 8, y: 4 },
-      })
-      .setOrigin(0.5);
-
-    bubbleGroup.add(bubbleText);
-    container.add(bubbleGroup);
-
-    this.tweens.add({
-      targets: bubbleGroup,
-      y: -84,
-      alpha: 0,
-      duration: 3000,
-      ease: 'Power1',
-      onComplete: () => bubbleGroup.destroy(),
-    });
+    const group = this.add.container(0, -80);
+    group.setName('emoteBubble');
+    const t = this.add.text(0, 0, text, {
+      fontFamily: 'Outfit,sans-serif', fontSize: '14px', color: '#FFFFFF',
+      backgroundColor: 'rgba(18,16,38,0.9)', padding: { x: 8, y: 4 },
+    }).setOrigin(0.5);
+    group.add(t);
+    container.add(group);
+    this.tweens.add({ targets: group, y: -96, alpha: 0, duration: 3000, ease: 'Power1', onComplete: () => group.destroy() });
   }
 
   private triggerSparklesAt(x: number, y: number, colorHex: number) {
     for (let i = 0; i < 12; i++) {
-      const p = this.add.image(x, y, 'spark_particle');
-      p.setTint(colorHex);
-      p.setDepth(y + 100);
-
+      const p = this.add.image(x, y, 'spark_particle').setTint(colorHex).setDepth(y + 100);
       const angle = Math.random() * Math.PI * 2;
       const dist = 30 + Math.random() * 40;
-
       this.tweens.add({
-        targets: p,
-        x: x + Math.cos(angle) * dist,
-        y: y + Math.sin(angle) * dist,
-        alpha: 0,
-        scale: 0.2,
-        duration: 800 + Math.random() * 400,
+        targets: p, x: x + Math.cos(angle) * dist, y: y + Math.sin(angle) * dist,
+        alpha: 0, scale: 0.2, duration: 800 + Math.random() * 400,
         onComplete: () => p.destroy(),
       });
     }
