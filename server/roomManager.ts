@@ -150,9 +150,14 @@ export class RoomManager {
     if (now - attacker.lastAttackTime < 600) return null;
     attacker.lastAttackTime = now;
 
-    // Distance validation (buffer for network latency up to 160 units)
+    // Distance validation — buffer raised to 400 units to account for
+    // Socket.io position-update lag in production (Render ~100-300ms latency).
+    // Client already enforces ATTACK_RANGE=80, server just sanity-checks.
     const dist = Math.hypot(attacker.x - target.x, attacker.y - target.y);
-    if (dist > 160) return null;
+    if (dist > 400) {
+      console.warn(`[attack] rejected: dist=${Math.round(dist)} attacker=${attackerId} target=${targetId}`);
+      return null;
+    }
 
     // Clamp damage 10-30
     const clampedDamage = Math.max(10, Math.min(30, damage));
