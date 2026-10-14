@@ -2,7 +2,7 @@ import express from 'express';
 import { createServer } from 'http';
 import { Server, Socket } from 'socket.io';
 import cors from 'cors';
-import { roomManager } from './roomManager.js';
+import { roomManager } from './roomManager';
 
 const app = express();
 app.use(cors({
@@ -142,7 +142,7 @@ io.on('connection', (socket: Socket) => {
     io.to(currentRoomId).emit('playerHit', {
       attackerId: socket.id,
       targetId: data.targetId,
-      damage: result.target.maxHealth - result.target.health <= 0 ? data.damage : data.damage,
+      damage: result.actualDamage,
       targetHealth: result.target.health,
       targetMaxHealth: result.target.maxHealth,
     });
@@ -155,8 +155,7 @@ io.on('connection', (socket: Socket) => {
 
       // Respawn broadcast after 5 seconds
       setTimeout(() => {
-        const room = roomManager.getOrCreateRoom(currentRoomId);
-        const respawnedPlayer = room.players[data.targetId];
+        const respawnedPlayer = roomManager.respawnPlayer(currentRoomId, data.targetId);
         if (respawnedPlayer) {
           io.to(currentRoomId).emit('playerRespawned', {
             id: data.targetId,
@@ -181,6 +180,12 @@ io.on('connection', (socket: Socket) => {
       });
 
       if (result.isNew) {
+        // Notify other players in the room so their player lists update discovery counts
+        socket.to(currentRoomId).emit('playerDiscoveredLocation', {
+          id: socket.id,
+          discoveredLocations: result.player.discoveredLocations,
+        });
+
         const latestMsg = roomManager.getOrCreateRoom(currentRoomId).chatHistory.slice(-1)[0];
         if (latestMsg) {
           io.to(currentRoomId).emit('chatBroadcast', latestMsg);

@@ -22,12 +22,15 @@ export const DiscoveryBanner: React.FC<DiscoveryBannerProps> = ({
 }) => {
   const locDef = ISLAND_LOCATIONS.find((l) => l.id === locationId);
 
+  const onCloseRef = React.useRef(onClose);
+  onCloseRef.current = onClose;
+
   useEffect(() => {
     const timer = setTimeout(() => {
-      onClose();
+      onCloseRef.current();
     }, 6000);
     return () => clearTimeout(timer);
-  }, [onClose]);
+  }, []);
 
   return (
     <div className="fixed top-16 left-1/2 -translate-x-1/2 z-50 animate-bounce-short w-full max-w-md px-4">

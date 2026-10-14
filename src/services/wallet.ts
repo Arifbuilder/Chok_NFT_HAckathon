@@ -116,16 +116,26 @@ export class WalletService {
   public listenToWalletEvents(
     onAccountChange: (account: string | null) => void,
     onChainChange: (chainIdHex: string) => void
-  ) {
-    if (!this.isWalletInstalled()) return;
+  ): () => void {
+    if (!this.isWalletInstalled()) return () => {};
 
-    window.ethereum.on('accountsChanged', (accounts: string[]) => {
+    const handleAccounts = (accounts: string[]) => {
       onAccountChange(accounts.length > 0 ? accounts[0] : null);
-    });
+    };
 
-    window.ethereum.on('chainChanged', (chainIdHex: string) => {
+    const handleChain = (chainIdHex: string) => {
       onChainChange(chainIdHex);
-    });
+    };
+
+    window.ethereum.on('accountsChanged', handleAccounts);
+    window.ethereum.on('chainChanged', handleChain);
+
+    return () => {
+      try {
+        window.ethereum?.removeListener?.('accountsChanged', handleAccounts);
+        window.ethereum?.removeListener?.('chainChanged', handleChain);
+      } catch {}
+    };
   }
 }
 

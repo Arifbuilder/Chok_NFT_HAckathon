@@ -39,7 +39,10 @@ export const IdentityPanel: React.FC<IdentityPanelProps> = ({ character, nicknam
   }, [character.id, character.isRealNFT, character.ownerAddress]);
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-sm">
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-sm"
+      onPointerDown={(e) => e.stopPropagation()}
+    >
       <div className="relative w-full max-w-lg bg-slate-900 border border-purple-500/40 rounded-3xl p-6 shadow-2xl shadow-purple-950/90 text-white flex flex-col gap-5">
         {/* Top Header */}
         <div className="flex items-center justify-between border-b border-slate-800 pb-4">

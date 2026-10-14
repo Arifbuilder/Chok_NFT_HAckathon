@@ -103,7 +103,10 @@ export class IslandScene extends Phaser.Scene {
   public preload() {
     generateGameTextures(this);
     if (this.localNftImageUrl && this.localNftTokenId) {
-      this.load.image(`nft_local_${this.localNftTokenId}`, this.localNftImageUrl);
+      const imgUrl = this.localNftImageUrl.startsWith('ipfs://')
+        ? this.localNftImageUrl.replace('ipfs://', 'https://ipfs.io/ipfs/')
+        : this.localNftImageUrl;
+      this.load.image(`nft_local_${this.localNftTokenId}`, imgUrl);
     }
   }
 
@@ -123,6 +126,7 @@ export class IslandScene extends Phaser.Scene {
     this.cameras.main.setZoom(1.1);
 
     if (this.input.keyboard) {
+      this.input.keyboard.disableGlobalCapture();
       this.cursors = this.input.keyboard.createCursorKeys();
       this.wasdKeys = {
         W: this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.W),
@@ -150,6 +154,10 @@ export class IslandScene extends Phaser.Scene {
       .setOrigin(0.5)
       .setScrollFactor(0)
       .setDepth(9999);
+
+    // Register clean shutdown
+    this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => this.cleanupSocketListeners());
+    this.events.once(Phaser.Scenes.Events.DESTROY, () => this.cleanupSocketListeners());
 
     // Setup socket listeners THEN join (so we catch roomInit)
     this.setupSocketListeners();
@@ -246,9 +254,12 @@ export class IslandScene extends Phaser.Scene {
     body.setSize(36, 36);
     body.setOffset(-18, -18);
 
-    const key = this.textures.exists(`nft_local_${this.localNftTokenId}`)
-      ? `nft_local_${this.localNftTokenId}`
-      : this.localCharacterId;
+    const key =
+      this.localNftTokenId && this.textures.exists(`nft_local_${this.localNftTokenId}`)
+        ? `nft_local_${this.localNftTokenId}`
+        : this.textures.exists(this.localCharacterId)
+        ? this.localCharacterId
+        : 'chog-genesis-purple';
 
     this.localPlayerSprite = this.add.sprite(0, 0, key);
     if (key.startsWith('nft_local_')) this.localPlayerSprite.setDisplaySize(44, 44);
@@ -370,111 +381,143 @@ export class IslandScene extends Phaser.Scene {
   }
 
   // ──────────────────────────────────────────────
-  //  SOCKET EVENTS — uses .off/.on to avoid duplicates on scene restart
+  //  SOCKET EVENTS — Dedicated callbacks to prevent wiping App.tsx listeners
   // ──────────────────────────────────────────────
+
+  private onRoomInit = (data: { selfId: string; room: { players: Record<string, PlayerState> } }) => {
+    this.mySocketId = data.selfId;
+    this.remotePlayers.forEach((_, id) => this.removeRemotePlayer(id));
+    this.remotePlayers.clear();
+
+    Object.values(data.room.players).forEach((p) => {
+      if (p.id !== data.selfId) {
+        this.createRemotePlayer(p);
+      }
+    });
+  };
+
+  private onPlayerJoined = (p: PlayerState) => {
+    if (p.id === this.mySocketId) return;
+    if (!this.remotePlayers.has(p.id)) {
+      this.createRemotePlayer(p);
+    }
+  };
+
+  private onPlayerMoved = (data: { id: string; x: number; y: number }) => {
+    const remote = this.remotePlayers.get(data.id);
+    if (remote && !remote.isDead) {
+      remote.targetX = data.x;
+      remote.targetY = data.y;
+    }
+  };
+
+  private onPlayerEmoted = (data: { id: string; emote: { text: string } }) => {
+    const socket = socketService.getSocket();
+    if (socket && data.id === socket.id) {
+      this.showLocalEmoteBubble(data.emote.text);
+    } else {
+      const remote = this.remotePlayers.get(data.id);
+      if (remote) this.showEmoteBubbleOnContainer(remote.container, data.emote.text);
+    }
+  };
+
+  private onPlayerLeft = (data: { id: string }) => {
+    this.removeRemotePlayer(data.id);
+  };
+
+  private onPlayerHit = (data: { attackerId: string; targetId: string; damage: number; targetHealth: number; targetMaxHealth: number }) => {
+    const socket = socketService.getSocket();
+    const selfId = socket ? socket.id : this.mySocketId;
+    const iAmTarget = data.targetId === selfId;
+
+    if (iAmTarget) {
+      this.localHealth = data.targetHealth;
+      this.updateHealthBar(this.localHealthBarFill, this.localHealth, this.localMaxHealth);
+      this.showDamageNumber(this.localPlayer.x, this.localPlayer.y, data.damage, true);
+      this.cameras.main.shake(120, 0.008);
+      this.localPlayerSprite.setTint(0xff4444);
+      this.time.delayedCall(300, () => {
+        if (this.localPlayerSprite && this.localPlayerSprite.active) this.localPlayerSprite.clearTint();
+      });
+    } else {
+      const remote = this.remotePlayers.get(data.targetId);
+      if (remote) {
+        remote.health = data.targetHealth;
+        this.updateHealthBar(remote.healthBarFill, remote.health, remote.maxHealth);
+        this.showDamageNumber(remote.container.x, remote.container.y, data.damage, false);
+        remote.sprite.setTint(0xff4444);
+        this.time.delayedCall(300, () => {
+          if (remote.sprite && remote.sprite.active) remote.sprite.clearTint();
+        });
+      }
+    }
+
+    // Animate attacker's sword swing (for remote attackers)
+    if (data.attackerId !== selfId) {
+      const remoteAttacker = this.remotePlayers.get(data.attackerId);
+      if (remoteAttacker && remoteAttacker.swordSprite) {
+        this.swingRemoteSword(remoteAttacker.swordSprite);
+      }
+    }
+
+    // Trigger slash effect at target location visible to ALL clients
+    const targetX = iAmTarget ? this.localPlayer.x : this.remotePlayers.get(data.targetId)?.container.x;
+    const targetY = iAmTarget ? this.localPlayer.y : this.remotePlayers.get(data.targetId)?.container.y;
+    if (targetX !== undefined && targetY !== undefined) {
+      this.triggerSlashAt(targetX, targetY);
+    }
+  };
+
+  private onPlayerDied = (data: { targetId: string }) => {
+    const socket = socketService.getSocket();
+    const selfId = socket ? socket.id : this.mySocketId;
+    if (data.targetId === selfId) {
+      this.handleLocalDeath();
+    } else {
+      const remote = this.remotePlayers.get(data.targetId);
+      if (remote) this.handleRemoteDeath(remote);
+    }
+  };
+
+  private onPlayerRespawned = (data: { id: string; x: number; y: number; health: number; maxHealth: number }) => {
+    const socket = socketService.getSocket();
+    const selfId = socket ? socket.id : this.mySocketId;
+    if (data.id === selfId) {
+      this.handleLocalRespawn(data.x, data.y, data.health);
+    } else {
+      const remote = this.remotePlayers.get(data.id);
+      if (remote) this.handleRemoteRespawn(remote, data.x, data.y, data.health, data.maxHealth);
+    }
+  };
 
   private setupSocketListeners() {
     const socket = socketService.getSocket();
     if (!socket) return;
 
-    // Remove old scene-specific listeners to avoid stacking on restart
-    socket.off('roomInit');
-    socket.off('playerJoined');
-    socket.off('playerMoved');
-    socket.off('playerEmoted');
-    socket.off('playerLeft');
-    socket.off('playerHit');
-    socket.off('playerDied');
-    socket.off('playerRespawned');
+    this.cleanupSocketListeners();
 
-    socket.on('roomInit', (data: { selfId: string; room: { players: Record<string, PlayerState> } }) => {
-      this.mySocketId = data.selfId;
-      // Destroy any stale remote players first
-      this.remotePlayers.forEach((_, id) => this.removeRemotePlayer(id));
-      this.remotePlayers.clear();
+    socket.on('roomInit', this.onRoomInit);
+    socket.on('playerJoined', this.onPlayerJoined);
+    socket.on('playerMoved', this.onPlayerMoved);
+    socket.on('playerEmoted', this.onPlayerEmoted);
+    socket.on('playerLeft', this.onPlayerLeft);
+    socket.on('playerHit', this.onPlayerHit);
+    socket.on('playerDied', this.onPlayerDied);
+    socket.on('playerRespawned', this.onPlayerRespawned);
+  }
 
-      Object.values(data.room.players).forEach((p) => {
-        if (p.id !== data.selfId) {
-          this.createRemotePlayer(p);
-        }
-      });
-    });
+  private cleanupSocketListeners() {
+    const socket = socketService.getSocket();
+    if (!socket) return;
 
-    socket.on('playerJoined', (p: PlayerState) => {
-      if (p.id === this.mySocketId) return;
-      if (!this.remotePlayers.has(p.id)) {
-        this.createRemotePlayer(p);
-      }
-    });
-
-    socket.on('playerMoved', (data: { id: string; x: number; y: number }) => {
-      const remote = this.remotePlayers.get(data.id);
-      if (remote && !remote.isDead) {
-        remote.targetX = data.x;
-        remote.targetY = data.y;
-      }
-    });
-
-    socket.on('playerEmoted', (data: { id: string; emote: { text: string } }) => {
-      if (data.id === socket.id) {
-        this.showLocalEmoteBubble(data.emote.text);
-      } else {
-        const remote = this.remotePlayers.get(data.id);
-        if (remote) this.showEmoteBubbleOnContainer(remote.container, data.emote.text);
-      }
-    });
-
-    socket.on('playerLeft', (data: { id: string }) => {
-      this.removeRemotePlayer(data.id);
-    });
-
-    socket.on('playerHit', (data: { attackerId: string; targetId: string; damage: number; targetHealth: number; targetMaxHealth: number }) => {
-      const iAmTarget = data.targetId === socket.id;
-      const iAmAttacker = data.attackerId === socket.id;
-
-      if (iAmTarget) {
-        this.localHealth = data.targetHealth;
-        this.updateHealthBar(this.localHealthBarFill, this.localHealth, this.localMaxHealth);
-        this.showDamageNumber(this.localPlayer.x, this.localPlayer.y, data.damage, true);
-        this.cameras.main.shake(120, 0.008);
-        this.localPlayerSprite.setTint(0xff4444);
-        this.time.delayedCall(300, () => this.localPlayerSprite.clearTint());
-      } else {
-        const remote = this.remotePlayers.get(data.targetId);
-        if (remote) {
-          remote.health = data.targetHealth;
-          this.updateHealthBar(remote.healthBarFill, remote.health, remote.maxHealth);
-          this.showDamageNumber(remote.container.x, remote.container.y, data.damage, false);
-          remote.sprite.setTint(0xff4444);
-          this.time.delayedCall(300, () => { if (remote.sprite && remote.sprite.active) remote.sprite.clearTint(); });
-          if (iAmAttacker) this.swingRemoteSword(remote.swordSprite);
-        }
-      }
-
-      if (iAmAttacker) {
-        const tx = data.targetId === socket.id ? this.localPlayer.x : this.remotePlayers.get(data.targetId)?.container.x;
-        const ty = data.targetId === socket.id ? this.localPlayer.y : this.remotePlayers.get(data.targetId)?.container.y;
-        if (tx !== undefined && ty !== undefined) this.triggerSlashAt(tx, ty);
-      }
-    });
-
-    socket.on('playerDied', (data: { targetId: string }) => {
-      if (data.targetId === socket.id) {
-        this.handleLocalDeath();
-      } else {
-        const remote = this.remotePlayers.get(data.targetId);
-        if (remote) this.handleRemoteDeath(remote);
-      }
-    });
-
-    socket.on('playerRespawned', (data: { id: string; x: number; y: number; health: number; maxHealth: number }) => {
-      if (data.id === socket.id) {
-        this.handleLocalRespawn(data.x, data.y, data.health);
-      } else {
-        const remote = this.remotePlayers.get(data.id);
-        if (remote) this.handleRemoteRespawn(remote, data.x, data.y, data.health, data.maxHealth);
-      }
-    });
+    socket.off('roomInit', this.onRoomInit);
+    socket.off('playerJoined', this.onPlayerJoined);
+    socket.off('playerMoved', this.onPlayerMoved);
+    socket.off('playerEmoted', this.onPlayerEmoted);
+    socket.off('playerLeft', this.onPlayerLeft);
+    socket.off('playerHit', this.onPlayerHit);
+    socket.off('playerDied', this.onPlayerDied);
+    socket.off('playerRespawned', this.onPlayerRespawned);
   }
 
   // ──────────────────────────────────────────────
@@ -578,9 +621,12 @@ export class IslandScene extends Phaser.Scene {
   private handleLocalRespawn(x: number, y: number, health: number) {
     this.localIsDead = false;
     this.localHealth = health;
+    this.localPlayer.setAngle(0);
     this.localPlayer.x = x;
     this.localPlayer.y = y;
-    this.tweens.add({ targets: this.localPlayer, angle: 0, alpha: 1, scale: 1, duration: 500, ease: 'Back.easeOut' });
+    const body = this.localPlayer.body as Phaser.Physics.Arcade.Body;
+    if (body) body.reset(x, y);
+    this.tweens.add({ targets: this.localPlayer, alpha: 1, scale: 1, duration: 400, ease: 'Back.easeOut' });
     this.updateHealthBar(this.localHealthBarFill, health, this.localMaxHealth);
     this.triggerSparklesAt(x, y, 0x00F58C);
   }
@@ -598,9 +644,10 @@ export class IslandScene extends Phaser.Scene {
     remote.maxHealth = maxHealth;
     remote.targetX = x;
     remote.targetY = y;
+    remote.container.setAngle(0);
     remote.container.x = x;
     remote.container.y = y;
-    this.tweens.add({ targets: remote.container, angle: 0, alpha: 1, scale: 1, duration: 500, ease: 'Back.easeOut' });
+    this.tweens.add({ targets: remote.container, alpha: 1, scale: 1, duration: 400, ease: 'Back.easeOut' });
     this.updateHealthBar(remote.healthBarFill, health, maxHealth);
     this.triggerSparklesAt(x, y, 0x00F58C);
   }
@@ -615,7 +662,11 @@ export class IslandScene extends Phaser.Scene {
     const body = this.localPlayer.body as Phaser.Physics.Arcade.Body;
     body.setVelocity(0, 0);
 
-    if (this.spaceKey && Phaser.Input.Keyboard.JustDown(this.spaceKey)) {
+    // If typing in an input field (e.g. chat box), do not capture movement or attack keys
+    const activeTag = document.activeElement?.tagName?.toLowerCase();
+    const isTyping = activeTag === 'input' || activeTag === 'textarea';
+
+    if (!isTyping && this.spaceKey && Phaser.Input.Keyboard.JustDown(this.spaceKey)) {
       this.performAttack();
     }
 
@@ -625,7 +676,7 @@ export class IslandScene extends Phaser.Scene {
     let moveY = 0;
     let dir: 'up' | 'down' | 'left' | 'right' = 'down';
 
-    if (this.cursors && this.wasdKeys) {
+    if (!isTyping && this.cursors && this.wasdKeys) {
       if (this.cursors.left.isDown || this.wasdKeys.A.isDown) { moveX = -1; dir = 'left'; }
       else if (this.cursors.right.isDown || this.wasdKeys.D.isDown) { moveX = 1; dir = 'right'; }
       if (this.cursors.up.isDown || this.wasdKeys.W.isDown) { moveY = -1; dir = 'up'; }
@@ -654,8 +705,15 @@ export class IslandScene extends Phaser.Scene {
       body.setVelocity(vec.x, vec.y);
       this.localPlayer.setDepth(this.localPlayer.y);
       this.localPlayerSprite.y = Math.sin(time / 80) * 3;
-      if (moveX < 0) { this.localSwordSprite.x = -20; this.localSwordSprite.setFlipX(true); }
-      else { this.localSwordSprite.x = 20; this.localSwordSprite.setFlipX(false); }
+      if (moveX < 0) {
+        this.localPlayerSprite.setFlipX(true);
+        this.localSwordSprite.x = -20;
+        this.localSwordSprite.setFlipX(true);
+      } else if (moveX > 0) {
+        this.localPlayerSprite.setFlipX(false);
+        this.localSwordSprite.x = 20;
+        this.localSwordSprite.setFlipX(false);
+      }
     } else {
       this.localPlayerSprite.y = 0;
     }
@@ -670,9 +728,18 @@ export class IslandScene extends Phaser.Scene {
 
     this.remotePlayers.forEach((remote) => {
       if (!remote.isDead) {
+        const prevX = remote.container.x;
         remote.container.x = Phaser.Math.Linear(remote.container.x, remote.targetX, 0.25);
         remote.container.y = Phaser.Math.Linear(remote.container.y, remote.targetY, 0.25);
         remote.container.setDepth(remote.container.y);
+
+        const dx = remote.targetX - prevX;
+        if (Math.abs(dx) > 0.5) {
+          const facingLeft = dx < 0;
+          remote.sprite.setFlipX(facingLeft);
+          remote.swordSprite.x = facingLeft ? -20 : 20;
+          remote.swordSprite.setFlipX(facingLeft);
+        }
       }
     });
 

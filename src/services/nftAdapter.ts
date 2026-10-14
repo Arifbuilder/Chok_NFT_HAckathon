@@ -112,7 +112,14 @@ export class MonadNFTVerifier implements NFTVerifierAdapter {
       }
 
       // Match character or pick first owned NFT
-      const selectedItem = ownedNFTs.find((item) => item.tokenId === characterId) || ownedNFTs[0];
+      const cleanTokenId = characterId.replace(/^nft-chog-/, '');
+      const selectedItem =
+        ownedNFTs.find(
+          (item) =>
+            item.tokenId === characterId ||
+            item.tokenId === cleanTokenId ||
+            item.characterObj.id === characterId
+        ) || ownedNFTs[0];
 
       return {
         isVerified: true,

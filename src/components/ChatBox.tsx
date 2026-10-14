@@ -32,7 +32,7 @@ export const ChatBox: React.FC<ChatBoxProps> = ({ chatHistory, currentUserId, on
     : 'w-full h-72 sm:h-80 bg-slate-900/95 border border-purple-500/30 rounded-2xl shadow-2xl backdrop-blur-md flex flex-col text-white';
 
   return (
-    <div className={containerCls}>
+    <div className={containerCls} onPointerDown={(e) => e.stopPropagation()}>
       {/* Header — only in non-embedded (mobile drawer) */}
       {!embedded && (
         <div className="flex items-center justify-between px-3 pt-3 pb-2 border-b border-slate-800 shrink-0">

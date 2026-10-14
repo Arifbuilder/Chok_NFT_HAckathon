@@ -70,9 +70,54 @@ export default function App() {
       setChatHistory((prev) => [...prev.slice(-199), msg]);
     });
 
-    socket.on('locationDiscovered', (data: { locationId: string; locationName: string; discoveredLocations: string[] }) => {
+    socket.on('locationDiscovered', (data: { locationId: string; locationName: string; discoveredLocations: string[]; isNew?: boolean }) => {
       setDiscoveredLocations(data.discoveredLocations);
-      setActiveDiscovery({ id: data.locationId, name: data.locationName });
+      if (data.isNew !== false) {
+        setActiveDiscovery({ id: data.locationId, name: data.locationName });
+      }
+    });
+
+    socket.on('playerDiscoveredLocation', (data: { id: string; discoveredLocations: string[] }) => {
+      setPlayers((prev) => {
+        if (!prev[data.id]) return prev;
+        return {
+          ...prev,
+          [data.id]: {
+            ...prev[data.id],
+            discoveredLocations: data.discoveredLocations,
+          },
+        };
+      });
+    });
+
+    socket.on('playerHit', (data: { targetId: string; targetHealth: number }) => {
+      setPlayers((prev) => {
+        if (!prev[data.targetId]) return prev;
+        return {
+          ...prev,
+          [data.targetId]: { ...prev[data.targetId], health: data.targetHealth },
+        };
+      });
+    });
+
+    socket.on('playerDied', (data: { targetId: string }) => {
+      setPlayers((prev) => {
+        if (!prev[data.targetId]) return prev;
+        return {
+          ...prev,
+          [data.targetId]: { ...prev[data.targetId], isDead: true, health: 0 },
+        };
+      });
+    });
+
+    socket.on('playerRespawned', (data: { id: string; x: number; y: number; health: number }) => {
+      setPlayers((prev) => {
+        if (!prev[data.id]) return prev;
+        return {
+          ...prev,
+          [data.id]: { ...prev[data.id], isDead: false, health: data.health, x: data.x, y: data.y },
+        };
+      });
     });
   };
 
@@ -81,8 +126,7 @@ export default function App() {
   const handleAttack = () => phaserRef.current?.triggerAttack();
 
   const handleDiscoveryFromGame = (locId: string, locName: string) => {
-    setDiscoveredLocations((prev) => prev.includes(locId) ? prev : [...prev, locId]);
-    setActiveDiscovery({ id: locId, name: locName });
+    setDiscoveredLocations((prev) => (prev.includes(locId) ? prev : [...prev, locId]));
   };
 
   const handleLeaveWorld = () => {

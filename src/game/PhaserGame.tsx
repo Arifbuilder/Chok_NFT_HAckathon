@@ -59,30 +59,30 @@ export const PhaserGame = forwardRef<PhaserGameHandle, PhaserGameProps>(
             debug: false,
           },
         },
-        scene: [IslandScene],
       };
 
       const game = new Phaser.Game(config);
       gameRef.current = game;
 
-      game.events.once('ready', () => {
-        const scene = game.scene.getScene('IslandScene') as IslandScene;
-        sceneRef.current = scene;
-        scene.scene.restart({
-          nickname,
-          characterId,
-          isRealNFT,
-          nftImageUrl,
-          nftTokenId,
-          walletAddress,
-          onDiscovery,
-        });
-      });
+      const sceneData = {
+        nickname,
+        characterId,
+        isRealNFT,
+        nftImageUrl,
+        nftTokenId,
+        walletAddress,
+        onDiscovery,
+      };
+
+      // Add and autoStart IslandScene directly with full user data
+      const scene = game.scene.add('IslandScene', IslandScene, true, sceneData) as IslandScene;
+      sceneRef.current = scene;
 
       return () => {
         if (gameRef.current) {
           gameRef.current.destroy(true);
           gameRef.current = null;
+          sceneRef.current = null;
         }
       };
     }, []);

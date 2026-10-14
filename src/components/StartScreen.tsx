@@ -41,7 +41,7 @@ export const StartScreen: React.FC<StartScreenProps> = ({ onStart }) => {
   const [selectedNFT, setSelectedNFT] = useState<VerifiedNFTItem | null>(null);
 
   useEffect(() => {
-    walletService.listenToWalletEvents(
+    const unsubscribe = walletService.listenToWalletEvents(
       (newAccount) => {
         if (newAccount) {
           handleConnectWallet();
@@ -61,6 +61,10 @@ export const StartScreen: React.FC<StartScreenProps> = ({ onStart }) => {
         handleConnectWallet();
       }
     );
+
+    return () => {
+      unsubscribe();
+    };
   }, []);
 
   const handleConnectWallet = async () => {

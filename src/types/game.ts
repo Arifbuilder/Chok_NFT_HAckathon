@@ -55,6 +55,7 @@ export interface PlayerState {
   nftTokenId?: string;
   nftImageUrl?: string;
   ownerAddress?: string;
+  walletAddress?: string;
   health: number;
   maxHealth: number;
   isDead: boolean;

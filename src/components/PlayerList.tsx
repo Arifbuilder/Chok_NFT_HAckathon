@@ -13,7 +13,10 @@ export const PlayerList: React.FC<PlayerListProps> = ({ players, currentUserId, 
   const playerArray = Object.values(players);
 
   return (
-    <div className="w-72 bg-slate-900/90 border border-purple-500/30 rounded-2xl p-4 shadow-2xl backdrop-blur-md text-white flex flex-col gap-3">
+    <div
+      className="w-72 bg-slate-900/90 border border-purple-500/30 rounded-2xl p-4 shadow-2xl backdrop-blur-md text-white flex flex-col gap-3"
+      onPointerDown={(e) => e.stopPropagation()}
+    >
       {/* Top Header */}
       <div className="flex items-center justify-between border-b border-slate-800 pb-2.5">
         <div className="flex items-center gap-2 text-xs font-bold text-slate-200">

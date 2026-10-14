@@ -1,5 +1,5 @@
 import { ethers } from 'ethers';
-import { ServerRoom, ServerPlayer, ServerChatMessage } from './types.js';
+import { ServerRoom, ServerPlayer, ServerChatMessage } from './types';
 
 const CHOG_CONTRACT_ADDRESS = process.env.MONAD_NFT_CONTRACT || '0xc96d31f8626c6d03fae5dcd3d61e3fb9f4a73763';
 const MONAD_RPC_URL = process.env.MONAD_RPC_URL || 'https://testnet-rpc.monad.xyz';
@@ -136,7 +136,7 @@ export class RoomManager {
     attackerId: string,
     targetId: string,
     damage: number
-  ): { attacker: ServerPlayer; target: ServerPlayer; died: boolean } | null {
+  ): { attacker: ServerPlayer; target: ServerPlayer; died: boolean; actualDamage: number } | null {
     const room = this.rooms.get(roomId);
     if (!room) return null;
 
@@ -150,6 +150,10 @@ export class RoomManager {
     if (now - attacker.lastAttackTime < 600) return null;
     attacker.lastAttackTime = now;
 
+    // Distance validation (buffer for network latency up to 160 units)
+    const dist = Math.hypot(attacker.x - target.x, attacker.y - target.y);
+    if (dist > 160) return null;
+
     // Clamp damage 10-30
     const clampedDamage = Math.max(10, Math.min(30, damage));
     target.health = Math.max(0, target.health - clampedDamage);
@@ -159,21 +163,20 @@ export class RoomManager {
       target.isDead = true;
       target.health = 0;
       died = true;
-
-      // Schedule respawn after 5 seconds
-      setTimeout(() => {
-        const r = this.rooms.get(roomId);
-        if (r && r.players[targetId]) {
-          r.players[targetId].isDead = false;
-          r.players[targetId].health = r.players[targetId].maxHealth;
-          // Respawn at center
-          r.players[targetId].x = 550 + Math.round(Math.random() * 80);
-          r.players[targetId].y = 480 + Math.round(Math.random() * 80);
-        }
-      }, 5000);
     }
 
-    return { attacker, target, died };
+    return { attacker, target, died, actualDamage: clampedDamage };
+  }
+
+  respawnPlayer(roomId: string, playerId: string): ServerPlayer | null {
+    const room = this.rooms.get(roomId);
+    if (!room || !room.players[playerId]) return null;
+    const player = room.players[playerId];
+    player.isDead = false;
+    player.health = player.maxHealth;
+    player.x = 550 + Math.round(Math.random() * 80);
+    player.y = 480 + Math.round(Math.random() * 80);
+    return player;
   }
 
   updatePlayerEmote(

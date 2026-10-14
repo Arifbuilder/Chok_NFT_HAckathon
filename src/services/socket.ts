@@ -14,8 +14,8 @@ class SocketService {
     if (envUrl) return envUrl;
 
     if (typeof window !== 'undefined') {
-      // If running Vite dev server locally on port 5173
-      if (window.location.port === '5173' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')) {
+      // If running locally on any dev server port
+      if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
         return `http://${window.location.hostname}:3001`;
       }
       // Production or deployed host (Netlify, Vercel, external domain) -> use live Render server!

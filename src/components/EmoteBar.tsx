@@ -24,7 +24,10 @@ export const EmoteBar: React.FC<EmoteBarProps> = ({
   onAttack,
 }) => {
   return (
-    <div className="flex flex-wrap items-center justify-center gap-1 sm:gap-1.5 bg-slate-900/95 border border-purple-500/30 rounded-2xl px-2 py-1.5 sm:px-3 sm:py-2 shadow-2xl backdrop-blur-md max-w-full">
+    <div
+      className="flex flex-wrap items-center justify-center gap-1 sm:gap-1.5 bg-slate-900/95 border border-purple-500/30 rounded-2xl px-2 py-1.5 sm:px-3 sm:py-2 shadow-2xl backdrop-blur-md max-w-full"
+      onPointerDown={(e) => e.stopPropagation()}
+    >
 
       {/* ⚔️ Attack — primary action, most prominent */}
       {onAttack && (
